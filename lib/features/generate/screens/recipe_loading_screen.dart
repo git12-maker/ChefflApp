@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +17,7 @@ class RecipeLoadingScreen extends ConsumerStatefulWidget {
 class _RecipeLoadingScreenState extends ConsumerState<RecipeLoadingScreen> {
   bool _hasStartedGeneration = false;
   bool _hasNavigated = false;
+  bool _navigationScheduled = false;
   late final RecipeGenerationLoaderController _controller;
 
   @override
@@ -40,55 +42,35 @@ class _RecipeLoadingScreenState extends ConsumerState<RecipeLoadingScreen> {
     final notifier = ref.read(generateProvider.notifier);
     final state = ref.read(generateProvider);
     
-    print('🚀 [RecipeLoadingScreen] Starting generation...');
-    print('🚀 [RecipeLoadingScreen] Current state: recipe=${state.generatedRecipe != null}, isLoading=${state.isLoading}');
+    if (kDebugMode) {
+      debugPrint('🚀 [RecipeLoadingScreen] Starting generation...');
+    }
     
     // If recipe is already generated, navigate immediately
     if (state.generatedRecipe != null) {
-      print('✅ [RecipeLoadingScreen] Recipe already exists, navigating immediately');
-      _navigateToRecipe();
+      if (kDebugMode) {
+        debugPrint('✅ [RecipeLoadingScreen] Recipe already exists, navigating immediately');
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _navigateToRecipe();
+        }
+      });
       return;
     }
     
-    // Set up listener BEFORE starting generation
-    // This ensures we catch the state change
-    ref.listen<GenerateState>(generateProvider, (previous, next) {
-      print('📡 [RecipeLoadingScreen] State changed: recipe=${next.generatedRecipe != null}, error=${next.error}');
-      
-      // Navigate as soon as recipe is ready (don't wait for image)
-      if (next.generatedRecipe != null && !_hasNavigated) {
-        print('✅ [RecipeLoadingScreen] Recipe ready in listener, navigating...');
-        _controller.markRecipeComplete();
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && !_hasNavigated) {
-            _navigateToRecipe();
-          }
-        });
+    // Start generation (don't await - build method will watch for changes)
+    notifier.generateRecipe().catchError((e, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('❌ [RecipeLoadingScreen] generateRecipe() error: $e');
+        debugPrint('Stack trace: $stackTrace');
       }
-      
-      // Handle errors
-      if (next.error != null && !_hasNavigated) {
-        print('❌ [RecipeLoadingScreen] Error in listener: ${next.error}');
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            context.go('/generate');
-          }
-        });
-      }
-    });
-    
-    // Start generation (don't await - listener will handle navigation)
-    print('🔄 [RecipeLoadingScreen] Calling generateRecipe()...');
-    notifier.generateRecipe().then((_) {
-      print('✅ [RecipeLoadingScreen] generateRecipe() completed');
-    }).catchError((e) {
-      print('❌ [RecipeLoadingScreen] generateRecipe() error: $e');
+      // Error is handled in provider state, build method will show it
     });
   }
 
   void _navigateToRecipe() {
     if (_hasNavigated) {
-      print('⚠️ [RecipeLoadingScreen] Already navigated, skipping');
       return; // Prevent multiple navigations
     }
     _hasNavigated = true;
@@ -96,18 +78,12 @@ class _RecipeLoadingScreenState extends ConsumerState<RecipeLoadingScreen> {
     final state = ref.read(generateProvider);
     final recipe = state.generatedRecipe;
     
-    print('🧭 [RecipeLoadingScreen] Navigating to recipe page...');
-    print('🧭 [RecipeLoadingScreen] Recipe: ${recipe?.title ?? "null"}');
-    print('🧭 [RecipeLoadingScreen] Mounted: $mounted');
-    
     if (recipe != null && mounted) {
       // Navigate to recipe result page
       // Image generation will continue on this page
-      print('✅ [RecipeLoadingScreen] Navigating to /recipe-result');
       context.go('/recipe-result', extra: recipe);
     } else {
       // Fallback: go back to generate
-      print('⚠️ [RecipeLoadingScreen] Recipe is null or not mounted, going to /generate');
       if (mounted) {
         context.go('/generate');
       }
@@ -116,33 +92,89 @@ class _RecipeLoadingScreenState extends ConsumerState<RecipeLoadingScreen> {
 
   void _onLoaderComplete() {
     // Fallback navigation
-    print('⏰ [RecipeLoadingScreen] Loader complete callback triggered');
     _navigateToRecipe();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Also watch in build as backup (in case listener doesn't fire)
+    // Watch state - this will rebuild whenever state changes
     final state = ref.watch(generateProvider);
     
-    // Check if recipe is ready and navigate (backup check)
-    if (state.generatedRecipe != null && !_hasNavigated) {
-      print('✅ [RecipeLoadingScreen] Recipe ready in build(), navigating (backup)...');
+    // Check if recipe is ready and navigate (only schedule once)
+    if (state.generatedRecipe != null && !_hasNavigated && !_navigationScheduled) {
+      _navigationScheduled = true;
       _controller.markRecipeComplete();
       
+      // Navigate immediately (use postFrameCallback to avoid navigation during build)
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_hasNavigated) {
-          print('🧭 [RecipeLoadingScreen] Executing navigation from build()');
           _navigateToRecipe();
         }
       });
     }
     
-    return RecipeGenerationLoader(
-      controller: _controller,
-      onComplete: _onLoaderComplete,
-      estimatedRecipeTime: 8,
-      estimatedImageTime: 12,
+    // Handle errors - show error and navigate back after delay
+    if (state.error != null && !_hasNavigated && !_navigationScheduled) {
+      _navigationScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          // Show error briefly, then navigate back
+          Future.delayed(const Duration(seconds: 2), () {
+            if (mounted) {
+              context.go('/generate');
+            }
+          });
+        }
+      });
+    }
+    
+    // Show error overlay if there's an error
+    return Stack(
+      children: [
+        RecipeGenerationLoader(
+          controller: _controller,
+          onComplete: _onLoaderComplete,
+          estimatedRecipeTime: 5, // Reduced from 8 - recipe is usually ready in 3-5 sec
+          estimatedImageTime: 12,
+        ),
+        if (state.error != null)
+          Container(
+            color: Colors.red.withOpacity(0.1),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      state.error!,
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Returning to generate screen...',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

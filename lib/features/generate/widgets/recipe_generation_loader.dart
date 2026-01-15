@@ -26,7 +26,7 @@ class RecipeGenerationLoader extends StatefulWidget {
     super.key,
     required this.onComplete,
     this.controller,
-    this.estimatedRecipeTime = 8, // seconds
+    this.estimatedRecipeTime = 5, // seconds - reduced, recipe is usually ready in 3-5 sec
     this.estimatedImageTime = 12, // seconds
   });
 
@@ -102,6 +102,11 @@ class _RecipeGenerationLoaderState extends State<RecipeGenerationLoader>
     if (mounted) {
       setState(() {
         _recipeComplete = true;
+        // Speed up progress animation when recipe is complete
+        // Adjust progress controller to complete faster
+        if (_progressController.value < 0.5) {
+          _progressController.value = 0.5; // Jump to 50% when recipe is done
+        }
       });
     }
   }

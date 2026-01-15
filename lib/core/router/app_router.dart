@@ -58,16 +58,19 @@ class AppRouter {
           builder: (context, state) => const ForgotPasswordScreen(),
         ),
 
-        // Shell with bottom navigation
+        // Shell with bottom navigation - no transitions for instant switching
         GoRoute(
           path: '/home',
           name: 'home',
-          builder: (context, state) => const AppShell(initialIndex: 0),
+          pageBuilder: (context, state) => NoTransitionPage<void>(
+            key: state.pageKey,
+            child: const AppShell(initialIndex: 0),
+          ),
         ),
         GoRoute(
           path: '/generate',
           name: 'generate',
-          builder: (context, state) {
+          pageBuilder: (context, state) {
             // Handle initial ingredients from route extra
             final extra = state.extra;
             if (extra is Map<String, dynamic>) {
@@ -77,18 +80,27 @@ class AppRouter {
                 // We can't access ref here, so GenerateScreen will handle it
               }
             }
-            return const AppShell(initialIndex: 1);
+            return NoTransitionPage<void>(
+              key: state.pageKey,
+              child: const AppShell(initialIndex: 1),
+            );
           },
         ),
         GoRoute(
           path: '/saved',
           name: 'saved',
-          builder: (context, state) => const AppShell(initialIndex: 2),
+          pageBuilder: (context, state) => NoTransitionPage<void>(
+            key: state.pageKey,
+            child: const AppShell(initialIndex: 2),
+          ),
         ),
         GoRoute(
           path: '/profile',
           name: 'profile',
-          builder: (context, state) => const AppShell(initialIndex: 3),
+          pageBuilder: (context, state) => NoTransitionPage<void>(
+            key: state.pageKey,
+            child: const AppShell(initialIndex: 3),
+          ),
         ),
 
         // Detail routes

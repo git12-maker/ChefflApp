@@ -23,11 +23,29 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String? _appVersion;
+  bool _hasLoaded = false;
 
   @override
   void initState() {
     super.initState();
     _loadAppVersion();
+    // Load data once on init
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(profileProvider.notifier).load();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Only refresh once when screen becomes visible
+    // Use a flag to prevent multiple calls
+    if (!_hasLoaded) {
+      _hasLoaded = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(profileProvider.notifier).refreshStats();
+      });
+    }
   }
 
   Future<void> _loadAppVersion() async {
@@ -69,7 +87,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         elevation: 0,
       ),
       body: RefreshIndicator(
-        onRefresh: () => notifier.load(),
+        onRefresh: () async {
+          await notifier.load();
+          // Reset flag to allow refresh on next visibility
+          _hasLoaded = false;
+        },
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -131,15 +153,53 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     icon: Icons.straighten_outlined,
                     title: 'Measurement Units',
                     subtitle: state.preferences.measurementUnit.displayName,
-                    trailing: Switch(
-                      value: state.preferences.measurementUnit ==
-                          MeasurementUnit.metric,
-                      onChanged: (isMetric) {
-                        notifier.updateMeasurementUnit(
-                          isMetric
-                              ? MeasurementUnit.metric
-                              : MeasurementUnit.imperial,
-                        );
+                    trailing: SegmentedButton<MeasurementUnit>(
+                      segments: const [
+                        ButtonSegment<MeasurementUnit>(
+                          value: MeasurementUnit.metric,
+                          label: Text('Metric'),
+                        ),
+                        ButtonSegment<MeasurementUnit>(
+                          value: MeasurementUnit.imperial,
+                          label: Text('Imperial'),
+                        ),
+                      ],
+                      selected: {state.preferences.measurementUnit},
+                      onSelectionChanged: (Set<MeasurementUnit> newSelection) async {
+                        try {
+                          final newUnit = newSelection.first;
+                          await notifier.updateMeasurementUnit(newUnit);
+                          // Reload to ensure state is updated
+                          await notifier.load();
+                          // Show success feedback
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Row(
+                                  children: [
+                                    Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
+                                    SizedBox(width: 8),
+                                    Text('Measurement unit updated'),
+                                  ],
+                                ),
+                                backgroundColor: AppColors.primary,
+                                behavior: SnackBarBehavior.floating,
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to update: $e'),
+                                backgroundColor: AppColors.error,
+                                behavior: SnackBarBehavior.floating,
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        }
                       },
                     ),
                   ),
@@ -152,8 +212,43 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 children: [
                   ThemeSelector(
                     currentTheme: themeMode,
-                    onChanged: (mode) {
-                      themeNotifier.setThemeMode(mode);
+                    onChanged: (mode) async {
+                      try {
+                        // Update theme provider (this updates the UI immediately)
+                        await themeNotifier.setThemeMode(mode);
+                        // Also update in profile provider for consistency
+                        await notifier.updateThemeMode(mode);
+                        // Reload to ensure state is updated
+                        await notifier.load();
+                        // Show success feedback
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Row(
+                                children: [
+                                  Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
+                                  SizedBox(width: 8),
+                                  Text('Theme updated'),
+                                ],
+                              ),
+                              backgroundColor: AppColors.primary,
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to update theme: $e'),
+                              backgroundColor: AppColors.error,
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      }
                     },
                   ),
                 ],
@@ -303,7 +398,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void _showDietaryPreferencesSheet(
     BuildContext context,
     List<String> current,
-    ValueChanged<List<String>> onSave,
+    Future<void> Function(List<String>) onSave,
   ) {
     showModalBottomSheet(
       context: context,
@@ -311,9 +406,43 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => DietaryPreferencesSheet(
         selectedPreferences: current,
-        onSave: (preferences) {
-          onSave(preferences);
-          Navigator.of(context).pop();
+                    onSave: (preferences) async {
+          try {
+            // Save preferences
+            await onSave(preferences);
+            // Close sheet first
+            if (context.mounted) {
+              Navigator.of(context).pop();
+            }
+            // Show success feedback
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Row(
+                    children: [
+                      Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
+                      SizedBox(width: 8),
+                      Text('Dietary preferences saved'),
+                    ],
+                  ),
+                  backgroundColor: AppColors.primary,
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to save: $e'),
+                  backgroundColor: AppColors.error,
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          }
         },
       ),
     );
@@ -322,7 +451,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void _showServingsPicker(
     BuildContext context,
     int current,
-    ValueChanged<int> onSave,
+    Future<void> Function(int) onSave,
   ) {
     showDialog(
       context: context,
@@ -355,9 +484,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   child: const Text('Cancel'),
                 ),
                 TextButton(
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                    onSave(selected);
+                  onPressed: () async {
+                    try {
+                      await onSave(selected);
+                      if (dialogContext.mounted) {
+                        Navigator.of(dialogContext).pop();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Row(
+                                children: [
+                                  Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
+                                  SizedBox(width: 8),
+                                  Text('Default servings saved'),
+                                ],
+                              ),
+                              backgroundColor: AppColors.primary,
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      }
+                    } catch (e) {
+                      if (dialogContext.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to save: $e'),
+                            backgroundColor: AppColors.error,
+                            behavior: SnackBarBehavior.floating,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    }
                   },
                   child: const Text('Save'),
                 ),
@@ -372,7 +532,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void _showCuisinesPicker(
     BuildContext context,
     List<String> current,
-    ValueChanged<List<String>> onSave,
+    Future<void> Function(List<String>) onSave,
   ) {
     const cuisines = [
       'Italian',
@@ -391,94 +551,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            List<String> selected = List.from(current);
-            
-            return Container(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-              ),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(20),
-                ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    margin: const EdgeInsets.only(top: 12, bottom: 8),
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .outlineVariant
-                          .withOpacity(0.4),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 16,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Preferred Cuisines',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            onSave(selected);
-                            Navigator.of(context).pop();
-                          },
-                          child: const Text('Done'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Flexible(
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: cuisines.length,
-                      itemBuilder: (context, index) {
-                        final cuisine = cuisines[index];
-                        final isSelected = selected.contains(cuisine);
-                        
-                        return CheckboxListTile(
-                          value: isSelected,
-                          onChanged: (_) {
-                            setState(() {
-                              if (isSelected) {
-                                selected.remove(cuisine);
-                              } else {
-                                selected.add(cuisine);
-                              }
-                            });
-                          },
-                          title: Text(cuisine),
-                          activeColor: AppColors.primary,
-                          contentPadding: EdgeInsets.zero,
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-              ),
-            );
-          },
-        );
-      },
+      builder: (context) => _CuisinesPickerSheet(
+        cuisines: cuisines,
+        initialSelected: current,
+        onSave: onSave,
+      ),
     );
   }
 
@@ -541,6 +618,146 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
             child: const Text('Delete'),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CuisinesPickerSheet extends StatefulWidget {
+  const _CuisinesPickerSheet({
+    required this.cuisines,
+    required this.initialSelected,
+    required this.onSave,
+  });
+
+  final List<String> cuisines;
+  final List<String> initialSelected;
+  final Future<void> Function(List<String>) onSave;
+
+  @override
+  State<_CuisinesPickerSheet> createState() => _CuisinesPickerSheetState();
+}
+
+class _CuisinesPickerSheetState extends State<_CuisinesPickerSheet> {
+  late List<String> _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = List<String>.from(widget.initialSelected);
+  }
+
+  void _toggleCuisine(String cuisine) {
+    setState(() {
+      if (_selected.contains(cuisine)) {
+        _selected.remove(cuisine);
+      } else {
+        _selected.add(cuisine);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(20),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Theme.of(context)
+                  .colorScheme
+                  .outlineVariant
+                  .withOpacity(0.4),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 16,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Preferred Cuisines',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    try {
+                      await widget.onSave(_selected);
+                      if (context.mounted) {
+                        Navigator.of(context).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Row(
+                              children: [
+                                Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
+                                SizedBox(width: 8),
+                                Text('Preferred cuisines saved'),
+                              ],
+                            ),
+                            backgroundColor: AppColors.primary,
+                            behavior: SnackBarBehavior.floating,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to save: $e'),
+                            backgroundColor: AppColors.error,
+                            behavior: SnackBarBehavior.floating,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  child: const Text('Done'),
+                ),
+              ],
+            ),
+          ),
+          Flexible(
+            child: ListView.builder(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: widget.cuisines.length,
+              itemBuilder: (context, index) {
+                final cuisine = widget.cuisines[index];
+                final isSelected = _selected.contains(cuisine);
+                
+                return CheckboxListTile(
+                  value: isSelected,
+                  onChanged: (_) => _toggleCuisine(cuisine),
+                  title: Text(cuisine),
+                  activeColor: AppColors.primary,
+                  contentPadding: EdgeInsets.zero,
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 20),
         ],
       ),
     );

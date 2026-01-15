@@ -60,6 +60,7 @@ class PreferencesService {
   }
 
   /// Save user preferences
+  /// Uses update-or-insert pattern: check if exists, then update or insert
   Future<void> savePreferences(UserPreferences preferences) async {
     final user = _client.auth.currentUser;
     if (user == null) {
@@ -68,16 +69,36 @@ class PreferencesService {
 
     try {
       final prefsJson = preferences.toJson();
-
-      // Update or insert preferences
-      await _client.from('user_preferences').upsert({
+      final data = {
         'user_id': user.id,
         'preferences': prefsJson,
         'measurement_unit': prefsJson['measurementUnit'],
         'theme_mode': prefsJson['themeMode'],
         'default_servings': preferences.defaultServings,
+        'dietary_restrictions': preferences.dietaryPreferences.isNotEmpty
+            ? {for (var p in preferences.dietaryPreferences) p: true}
+            : {},
+        'favorite_cuisines': preferences.preferredCuisines,
         'updated_at': DateTime.now().toIso8601String(),
-      });
+      };
+
+      // Check if preferences exist for this user
+      final existing = await _client
+          .from('user_preferences')
+          .select('user_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      if (existing != null) {
+        // Update existing record
+        await _client
+            .from('user_preferences')
+            .update(data)
+            .eq('user_id', user.id);
+      } else {
+        // Insert new record
+        await _client.from('user_preferences').insert(data);
+      }
     } catch (e) {
       throw Exception('Failed to save preferences: $e');
     }

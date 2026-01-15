@@ -18,29 +18,28 @@ class RecipeCardHorizontal extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     
-    return Material(
-      color: Colors.transparent,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: AppBorderRadius.xlargeAll,
-        child: Container(
-          width: 240,
-          margin: const EdgeInsets.only(right: 16),
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: AppBorderRadius.xlargeAll,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-                spreadRadius: 0,
-              ),
-            ],
-          ),
-          child: Column(
+    return Container(
+      width: 240,
+      margin: const EdgeInsets.only(right: 16, top: 4, bottom: 4), // Add vertical margin for shadow
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: AppBorderRadius.xlargeAll,
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: AppBorderRadius.xlargeAll,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.1),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -96,6 +95,7 @@ class RecipeCardHorizontal extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

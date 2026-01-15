@@ -24,13 +24,12 @@ class Env {
   /// Example: 'sk-...'
   /// IMPORTANT: Never commit real API keys to version control!
   /// Use environment variables or a secrets file that is gitignored
-  static const String openAiApiKey = 'YOUR_OPENAI_API_KEY_HERE';
+  static const String openAiApiKey = ''; // Set locally - never commit real keys
 
   /// Replicate API Key
   /// Replace with your actual Replicate API key for image generation
   /// You can find this at: https://replicate.com/account/api-tokens
   /// Example: 'r8_...'
   /// IMPORTANT: Never commit real API keys to version control!
-  /// Use environment variables or a secrets file that is gitignored
-  static const String replicateApiKey = 'YOUR_REPLICATE_API_KEY_HERE';
+  static const String replicateApiKey = ''; // Set locally - never commit real keys
 }

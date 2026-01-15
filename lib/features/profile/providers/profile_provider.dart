@@ -77,59 +77,91 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
 
   Future<Map<String, int>> _loadStats() async {
     try {
-      final allRecipes = await _recipeService.getRecipes();
-      final now = DateTime.now();
-      final thisMonth = DateTime(now.year, now.month);
-      
-      final thisMonthRecipes = allRecipes.where((r) {
-        if (r.createdAt == null) return false;
-        return r.createdAt!.isAfter(thisMonth);
-      }).length;
-      
-      final favorites = allRecipes.where((r) => r.isFavorite).length;
-      
-      return {
-        'total': allRecipes.length,
-        'favorites': favorites,
-        'thisMonth': thisMonthRecipes,
-      };
+      // Use optimized stats method from RecipeService
+      // This uses database queries instead of loading all recipes
+      return await _recipeService.getStats();
     } catch (e) {
       return {'total': 0, 'favorites': 0, 'thisMonth': 0};
     }
   }
 
   Future<void> updateDietaryPreferences(List<String> preferences) async {
-    final updated = state.preferences.copyWith(
-      dietaryPreferences: preferences,
-    );
-    await _preferencesService.savePreferences(updated);
-    state = state.copyWith(preferences: updated);
+    try {
+      final updated = state.preferences.copyWith(
+        dietaryPreferences: preferences,
+      );
+      await _preferencesService.savePreferences(updated);
+      // Update state directly (no need to reload - we know what we saved)
+      state = state.copyWith(preferences: updated);
+    } catch (e) {
+      print('Error updating dietary preferences: $e');
+      rethrow;
+    }
   }
 
   Future<void> updateDefaultServings(int servings) async {
-    final updated = state.preferences.copyWith(defaultServings: servings);
-    await _preferencesService.savePreferences(updated);
-    state = state.copyWith(preferences: updated);
+    try {
+      final updated = state.preferences.copyWith(defaultServings: servings);
+      await _preferencesService.savePreferences(updated);
+      // Update state directly (no need to reload - we know what we saved)
+      state = state.copyWith(preferences: updated);
+    } catch (e) {
+      print('Error updating default servings: $e');
+      rethrow;
+    }
   }
 
   Future<void> updatePreferredCuisines(List<String> cuisines) async {
-    final updated = state.preferences.copyWith(
-      preferredCuisines: cuisines,
-    );
-    await _preferencesService.savePreferences(updated);
-    state = state.copyWith(preferences: updated);
+    try {
+      final updated = state.preferences.copyWith(
+        preferredCuisines: cuisines,
+      );
+      await _preferencesService.savePreferences(updated);
+      // Update state directly (no need to reload - we know what we saved)
+      state = state.copyWith(preferences: updated);
+    } catch (e) {
+      print('Error updating preferred cuisines: $e');
+      rethrow;
+    }
   }
 
   Future<void> updateMeasurementUnit(MeasurementUnit unit) async {
-    final updated = state.preferences.copyWith(measurementUnit: unit);
-    await _preferencesService.savePreferences(updated);
-    state = state.copyWith(preferences: updated);
+    try {
+      final updated = state.preferences.copyWith(measurementUnit: unit);
+      await _preferencesService.savePreferences(updated);
+      // Update state directly (no need to reload - we know what we saved)
+      state = state.copyWith(preferences: updated);
+    } catch (e) {
+      print('Error updating measurement unit: $e');
+      rethrow;
+    }
   }
 
   Future<void> updateThemeMode(ThemeMode themeMode) async {
-    final updated = state.preferences.copyWith(themeMode: themeMode);
-    await _preferencesService.savePreferences(updated);
-    state = state.copyWith(preferences: updated);
+    try {
+      final updated = state.preferences.copyWith(themeMode: themeMode);
+      await _preferencesService.savePreferences(updated);
+      // Update state directly (no need to reload - we know what we saved)
+      state = state.copyWith(preferences: updated);
+    } catch (e) {
+      print('Error updating theme mode: $e');
+      rethrow;
+    }
+  }
+
+  /// Refresh stats only (without reloading preferences)
+  /// Useful for updating counts after recipes are added/deleted
+  Future<void> refreshStats() async {
+    try {
+      final stats = await _loadStats();
+      state = state.copyWith(
+        totalRecipes: stats['total'] ?? 0,
+        favoritesCount: stats['favorites'] ?? 0,
+        recipesThisMonth: stats['thisMonth'] ?? 0,
+      );
+    } catch (e) {
+      // Don't update state on error, keep existing values
+    }
   }
 
   Future<void> logout() async {

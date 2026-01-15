@@ -9,7 +9,7 @@ class DietaryPreferencesSheet extends StatefulWidget {
   });
 
   final List<String> selectedPreferences;
-  final ValueChanged<List<String>> onSave;
+  final Future<void> Function(List<String>) onSave;
 
   @override
   State<DietaryPreferencesSheet> createState() =>
@@ -88,7 +88,9 @@ class _DietaryPreferencesSheetState extends State<DietaryPreferencesSheet> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => widget.onSave(_selected),
+                  onPressed: () async {
+                    await widget.onSave(_selected);
+                  },
                   child: const Text('Done'),
                 ),
               ],

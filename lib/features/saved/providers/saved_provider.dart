@@ -97,6 +97,7 @@ class SavedNotifier extends StateNotifier<SavedState> {
       filtered:
           _applyFilters(updatedAll, state.search, state.filterFavorites),
     );
+    // Note: Profile stats will be refreshed when profile screen becomes visible
   }
 
   Future<void> delete(String id) async {
@@ -107,6 +108,7 @@ class SavedNotifier extends StateNotifier<SavedState> {
       filtered:
           _applyFilters(updatedAll, state.search, state.filterFavorites),
     );
+    // Note: Profile stats will be refreshed when profile screen becomes visible
   }
 
   Future<void> refresh() => load(force: true);

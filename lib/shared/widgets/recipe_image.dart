@@ -52,10 +52,11 @@ class RecipeImage extends StatelessWidget {
             fadeOutDuration: const Duration(milliseconds: 100),
             placeholder: (_, __) => _shimmerPlaceholder(context),
             errorWidget: (_, __, ___) => _fallback(context),
-            // Performance optimizations - cache smaller images for faster loading
-            memCacheWidth: cacheWidth > 1000 ? 1000 : cacheWidth,
-            maxWidthDiskCache: 1000,
-            maxHeightDiskCache: 1000,
+            // HD quality - cache full resolution images for sharp display
+            // Use higher cache limits for HD images (1024x1024 from Replicate)
+            memCacheWidth: cacheWidth > 2048 ? 2048 : cacheWidth,
+            maxWidthDiskCache: 2048, // HD cache
+            maxHeightDiskCache: 2048, // HD cache
             cacheKey: imageUrl,
           );
         },

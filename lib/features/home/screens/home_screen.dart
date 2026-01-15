@@ -43,6 +43,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               automaticallyImplyLeading: false,
               title: const GreetingHeader(),
             ),
+            // Section headers with padding
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -50,39 +51,69 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 24),
-                    // Quick actions
+                    // Quick actions header
                     const SectionHeader(title: 'Quick Actions'),
                     const SizedBox(height: 16),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.only(left: 4, right: 4),
-                      child: Row(
-                        children: [
-                          QuickActionCard(
-                            title: 'Generate Recipe',
-                            subtitle: 'AI-crafted ideas',
-                            icon: Icons.auto_awesome,
-                            onTap: () => context.go('/generate'),
-                          ),
-                          const SizedBox(width: 16),
-                          QuickActionCard(
-                            title: 'Scan Ingredients',
-                            subtitle: 'AI-powered recognition',
-                            icon: Icons.qr_code_scanner,
-                            onTap: () => context.go('/scan'),
-                          ),
-                        ],
+                  ],
+                ),
+              ),
+            ),
+            // Quick actions grid
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: QuickActionCard(
+                        title: 'Generate Recipe',
+                        subtitle: 'AI-crafted ideas',
+                        icon: Icons.auto_awesome,
+                        onTap: () => context.go('/generate'),
                       ),
                     ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: QuickActionCard(
+                        title: 'Scan Ingredients',
+                        subtitle: 'AI-powered recognition',
+                        icon: Icons.qr_code_scanner,
+                        onTap: () => context.go('/scan'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Section headers with padding
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     const SizedBox(height: 32),
-
-                    // Recent Recipes
+                    // Recent Recipes header
                     SectionHeader(
                       title: 'Recent Recipes',
                       onSeeAll: () => context.go('/saved'),
                     ),
                     const SizedBox(height: 16),
-                    _buildRecents(context, state),
+                  ],
+                ),
+              ),
+            ),
+            // Full-width carousel for recent recipes
+            SliverToBoxAdapter(
+              child: _buildRecents(context, state),
+            ),
+            // Continue with rest of content
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     const SizedBox(height: 32),
 
                     // Try something new
@@ -116,7 +147,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         height: 240,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.only(left: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 20), // Full-width padding
           itemCount: 3,
           separatorBuilder: (_, __) => const SizedBox(width: 16),
           itemBuilder: (_, __) => Container(
@@ -153,7 +184,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       height: 240,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 20), // Full-width padding
         itemCount: state.recents.length,
         cacheExtent: 500, // Cache more items for smoother scrolling
         itemBuilder: (context, index) {

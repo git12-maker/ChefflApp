@@ -296,18 +296,35 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                   onPressed: state.allSelectedIngredients.isEmpty
                       ? null
                       : () async {
-                          // Set ingredients in generate provider first
-                          ref.read(generateProvider.notifier).setInitialIngredients(
-                                state.allSelectedIngredients,
-                              );
-                          // Navigate to generate tab
-                          if (context.mounted) {
-                            context.go('/generate');
+                          // Check if we came from generate screen (has existing ingredients)
+                          final currentIngredients = ref.read(generateProvider).ingredients;
+                          final isAddingToExisting = currentIngredients.isNotEmpty;
+                          
+                          if (isAddingToExisting) {
+                            // Add to existing ingredients (from generate screen)
+                            ref.read(generateProvider.notifier).addIngredients(
+                                  state.allSelectedIngredients,
+                                );
+                            // Navigate back to generate screen
+                            if (context.mounted) {
+                              context.pop();
+                            }
+                          } else {
+                            // Replace ingredients (standalone scan)
+                            ref.read(generateProvider.notifier).setInitialIngredients(
+                                  state.allSelectedIngredients,
+                                );
+                            // Navigate to generate tab
+                            if (context.mounted) {
+                              context.go('/generate');
+                            }
                           }
                         },
                   icon: const Icon(Icons.arrow_forward_rounded),
                   label: Text(
-                    'Use ${state.allSelectedIngredients.length} Ingredients',
+                    ref.read(generateProvider).ingredients.isNotEmpty
+                        ? 'Add ${state.allSelectedIngredients.length} Ingredients'
+                        : 'Use ${state.allSelectedIngredients.length} Ingredients',
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   style: ElevatedButton.styleFrom(

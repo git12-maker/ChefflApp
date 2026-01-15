@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class IngredientInput extends StatefulWidget {
   const IngredientInput({
     super.key,
     required this.onAdd,
     this.hintText = 'Add ingredient',
+    this.showCameraButton = true,
   });
 
   final void Function(String) onAdd;
   final String hintText;
+  final bool showCameraButton;
 
   @override
   State<IngredientInput> createState() => _IngredientInputState();
@@ -27,6 +30,11 @@ class _IngredientInputState extends State<IngredientInput> {
     _focusNode.requestFocus();
   }
 
+  void _openCamera() {
+    // Navigate to scan screen - it will add ingredients to existing list
+    context.push('/scan');
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -41,9 +49,24 @@ class _IngredientInputState extends State<IngredientInput> {
       focusNode: _focusNode,
       decoration: InputDecoration(
         hintText: widget.hintText,
-        suffixIcon: IconButton(
-          icon: const Icon(Icons.add),
-          onPressed: _submit,
+        suffixIcon: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.showCameraButton) ...[
+              IconButton(
+                icon: const Icon(Icons.camera_alt_outlined),
+                onPressed: _openCamera,
+                tooltip: 'Scan ingredients',
+                iconSize: 22,
+                padding: const EdgeInsets.all(8),
+              ),
+            ],
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: _submit,
+              tooltip: 'Add ingredient',
+            ),
+          ],
         ),
       ),
       textInputAction: TextInputAction.done,

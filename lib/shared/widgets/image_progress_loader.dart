@@ -9,7 +9,7 @@ class ImageProgressLoader extends StatefulWidget {
     super.key,
     required this.height,
     this.message = 'Generating image...',
-    this.estimatedTime = 12, // seconds
+    this.estimatedTime = 10, // seconds - reduced for faster feedback
   });
 
   final double height;
@@ -21,7 +21,7 @@ class ImageProgressLoader extends StatefulWidget {
 }
 
 class _ImageProgressLoaderState extends State<ImageProgressLoader>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late AnimationController _progressController;
   Timer? _timer;

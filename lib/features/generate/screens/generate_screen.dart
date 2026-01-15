@@ -8,7 +8,7 @@ import '../widgets/generate_button.dart';
 import '../widgets/ingredient_chip.dart';
 import '../widgets/ingredient_input.dart';
 import '../widgets/preferences_panel.dart';
-import '../widgets/quick_add_grid.dart';
+import '../widgets/smart_ingredient_selector.dart';
 
 class GenerateScreen extends ConsumerStatefulWidget {
   const GenerateScreen({super.key});
@@ -18,15 +18,26 @@ class GenerateScreen extends ConsumerStatefulWidget {
 }
 
 class _GenerateScreenState extends ConsumerState<GenerateScreen> {
+
   @override
   void initState() {
     super.initState();
-    // Check if ingredients are already set in provider (from scan screen)
-    // This happens when user navigates from scan screen
+    // Reset state when navigating to generate screen (unless ingredients are being set)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final currentIngredients = ref.read(generateProvider).ingredients;
-      // If ingredients are already set, we're good
-      // Otherwise, they'll be set via route extra or manually
+      final state = ref.read(generateProvider);
+      // Always clear recipe when coming to generate screen (from refresh button or back navigation)
+      // Only keep ingredients if they exist (coming from scan screen)
+      if (state.generatedRecipe != null) {
+        if (state.ingredients.isEmpty) {
+          // No ingredients - clear everything (fresh start)
+          ref.read(generateProvider.notifier).clearAll();
+        } else {
+          // Has ingredients - clear recipe but keep ingredients (from scan)
+          ref.read(generateProvider.notifier).clearRecipe();
+        }
+      }
+      // Reload user preferences to ensure defaults are up-to-date
+      ref.read(generateProvider.notifier).reloadUserPreferences();
     });
   }
 
@@ -34,6 +45,7 @@ class _GenerateScreenState extends ConsumerState<GenerateScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(generateProvider);
     final notifier = ref.read(generateProvider.notifier);
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -57,7 +69,7 @@ class _GenerateScreenState extends ConsumerState<GenerateScreen> {
             children: [
               Text(
                 'Add ingredients',
-                style: Theme.of(context).textTheme.titleLarge,
+                style: theme.textTheme.titleLarge,
               ),
               const SizedBox(height: 8),
               IngredientInput(
@@ -65,7 +77,9 @@ class _GenerateScreenState extends ConsumerState<GenerateScreen> {
                 hintText: 'e.g. chicken breast, garlic, lemon',
               ),
               const SizedBox(height: 12),
-              if (state.ingredients.isNotEmpty)
+              
+              // Selected ingredients
+              if (state.ingredients.isNotEmpty) ...[
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -78,13 +92,17 @@ class _GenerateScreenState extends ConsumerState<GenerateScreen> {
                       )
                       .toList(),
                 ),
+                const SizedBox(height: 16),
+              ],
+              
+              // Smart Ingredient Selector (always visible - shows Chef's Analysis when ingredients selected, browse always available)
               const SizedBox(height: 16),
-              Text(
-                'Quick add',
-                style: Theme.of(context).textTheme.titleMedium,
+              SmartIngredientSelector(
+                selectedIngredients: state.ingredients,
+                onAdd: notifier.addIngredient,
+                onRemove: notifier.removeIngredient,
               ),
-              const SizedBox(height: 8),
-              QuickAddGrid(onAdd: notifier.addIngredient),
+              
               const SizedBox(height: 16),
               PreferencesPanel(
                 preferences: state.preferences,

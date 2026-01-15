@@ -42,33 +42,46 @@ class _AppShellState extends ConsumerState<AppShell> {
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: _pages,
-        // Keep all pages alive for instant switching (performance vs memory tradeoff)
         sizing: StackFit.expand,
+        // Keep all pages alive for instant switching (performance vs memory tradeoff)
+        children: _pages,
       ),
       bottomNavigationBar: BottomNavBar(
         currentIndex: _currentIndex,
         onTap: (index) {
+          // Update state first for instant visual feedback
           _onTabSelected(index);
+          
           // Update GoRouter location for deep-link consistency
-          switch (index) {
-            case 0:
-              context.go('/home');
-              break;
-            case 1:
-              context.go('/generate');
-              break;
-            case 2:
-              context.go('/saved');
-              break;
-            case 3:
-              context.go('/profile');
-              break;
-            default:
-              context.go('/home');
-          }
+          // Use a post-frame callback to ensure state update completes first
+          // This prevents the confusing double-page effect
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            final targetRoute = _getRouteForIndex(index);
+            final currentRoute = GoRouterState.of(context).matchedLocation;
+            
+            // Only navigate if route is different (prevents unnecessary rebuilds)
+            if (currentRoute != targetRoute) {
+              context.go(targetRoute);
+            }
+          });
         },
       ),
     );
+  }
+
+  String _getRouteForIndex(int index) {
+    switch (index) {
+      case 0:
+        return '/home';
+      case 1:
+        return '/generate';
+      case 2:
+        return '/saved';
+      case 3:
+        return '/profile';
+      default:
+        return '/home';
+    }
   }
 }
