@@ -1,0 +1,3 @@
+// Additional build settings to fix module verification issues
+CLANG_ENABLE_MODULE_DEBUGGING = NO
+CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO

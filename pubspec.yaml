@@ -1,0 +1,45 @@
+name: cheffl
+description: A premium AI-powered recipe generation and flavor finder app.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+
+  # Navigation
+  go_router: ^13.0.0
+
+  # Backend
+  supabase_flutter: ^2.5.6
+
+  # UI & Styling
+  google_fonts: ^6.1.0
+  flutter_svg: ^2.0.9
+  cached_network_image: ^3.3.1
+  shimmer: ^3.0.0
+
+  # Utilities
+  collection: ^1.18.0
+  http: ^1.1.0
+  cupertino_icons: ^1.0.6
+  package_info_plus: ^8.0.0
+  
+  # Camera & Image
+  image_picker: ^1.0.7
+  permission_handler: ^11.3.0
+  image: ^4.1.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
