@@ -222,7 +222,6 @@ class _PreferencesPanelState extends State<PreferencesPanel> {
   }
 
   Widget _buildServingsSelector(BuildContext context) {
-    final theme = Theme.of(context);
     final isDefault = _userPreferences != null && 
         widget.preferences.servings == _userPreferences!.defaultServings;
     

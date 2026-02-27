@@ -1,5 +1,4 @@
 import 'package:collection/collection.dart';
-import 'recipe_preferences.dart';
 
 /// Visual description of the plated dish for image generation
 class VisualDescription {
@@ -169,21 +168,25 @@ class RecipeIngredient {
     required this.name,
     required this.amount,
     this.isUserProvided = false, // Track if ingredient was provided by user or auto-added from instructions
+    this.imageUrl, // Supabase Storage URL for ingredient image
   });
 
   final String name;
   final String amount;
   final bool isUserProvided; // true = user provided, false = auto-added from instructions
+  final String? imageUrl;
 
   RecipeIngredient copyWith({
     String? name,
     String? amount,
     bool? isUserProvided,
+    String? imageUrl,
   }) {
     return RecipeIngredient(
       name: name ?? this.name,
       amount: amount ?? this.amount,
       isUserProvided: isUserProvided ?? this.isUserProvided,
+      imageUrl: imageUrl ?? this.imageUrl,
     );
   }
 
@@ -191,6 +194,7 @@ class RecipeIngredient {
         'name': name,
         'amount': amount,
         'is_user_provided': isUserProvided,
+        if (imageUrl != null) 'image_url': imageUrl,
       };
 
   factory RecipeIngredient.fromJson(Map<String, dynamic> json) {
@@ -198,6 +202,7 @@ class RecipeIngredient {
       name: json['name'] as String? ?? '',
       amount: json['amount'] as String? ?? '',
       isUserProvided: json['is_user_provided'] as bool? ?? false,
+      imageUrl: json['image_url'] as String?,
     );
   }
 }

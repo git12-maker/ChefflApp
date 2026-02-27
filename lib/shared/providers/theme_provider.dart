@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/preferences_service.dart';
-import '../../shared/models/user_preferences.dart';
 
 /// Theme mode provider that syncs with user preferences
 final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {

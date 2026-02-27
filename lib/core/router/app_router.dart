@@ -103,6 +103,13 @@ class AppRouter {
           ),
         ),
 
+        // Overlay routes (pushed on top of shell)
+        GoRoute(
+          path: '/scan',
+          name: 'scan',
+          builder: (context, state) => const ScanScreen(),
+        ),
+
         // Detail routes
         GoRoute(
           path: '/recipe/:id',
@@ -130,11 +137,6 @@ class AppRouter {
               path: '/recipe-loading',
               name: 'recipe-loading',
               builder: (context, state) => const RecipeLoadingScreen(),
-            ),
-            GoRoute(
-              path: '/scan',
-              name: 'scan',
-              builder: (context, state) => const ScanScreen(),
             ),
       ],
     );

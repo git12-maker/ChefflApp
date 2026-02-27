@@ -11,6 +11,7 @@ class ImageStorageService {
   static final ImageStorageService instance = ImageStorageService._();
 
   static const String _bucketName = 'recipe-images';
+  static const String _ingredientBucketName = 'ingredient-images';
   static const int _maxImageSize = 5 * 1024 * 1024; // 5MB max
 
   SupabaseClient get _client => SupabaseService.client;
@@ -21,6 +22,7 @@ class ImageStorageService {
     required String imageUrl,
     required String recipeId,
     String? fileName,
+    String? bucketName,
   }) async {
     try {
       // Download image from URL
@@ -40,10 +42,14 @@ class ImageStorageService {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final extension = _getFileExtension(imageUrl);
       final finalFileName = fileName ?? 'recipe-$recipeId-$timestamp$extension';
-      final storagePath = '$recipeId/$finalFileName';
+      // For ingredient images, store in root (no recipeId folder)
+      final storagePath = bucketName == _ingredientBucketName 
+          ? finalFileName 
+          : '$recipeId/$finalFileName';
+      final bucket = bucketName ?? _bucketName;
 
       // Upload to Supabase Storage (using bytes)
-      await _client.storage.from(_bucketName).uploadBinary(
+      await _client.storage.from(bucket).uploadBinary(
         storagePath,
         imageBytes,
         fileOptions: FileOptions(
@@ -53,7 +59,7 @@ class ImageStorageService {
       );
 
       // Get public URL
-      final publicUrl = _client.storage.from(_bucketName).getPublicUrl(storagePath);
+      final publicUrl = _client.storage.from(bucket).getPublicUrl(storagePath);
       
       print('Image uploaded successfully: $publicUrl');
       return publicUrl;
@@ -102,6 +108,36 @@ class ImageStorageService {
       print('Error uploading image file: $e');
       return null;
     }
+  }
+
+  /// Upload ingredient image from URL
+  /// Uses ingredient name for clear filename (e.g., "basil.png")
+  Future<String?> uploadIngredientImageFromUrl({
+    required String imageUrl,
+    required String ingredientId,
+    required String ingredientName,
+    String? fileName,
+  }) async {
+    // Sanitize ingredient name for filename
+    final sanitizedName = _sanitizeFileName(ingredientName);
+    final finalFileName = fileName ?? '$sanitizedName.png';
+    
+    return uploadImageFromUrl(
+      imageUrl: imageUrl,
+      recipeId: '', // Not used for ingredient images (stored in root)
+      fileName: finalFileName,
+      bucketName: _ingredientBucketName,
+    );
+  }
+
+  /// Sanitize ingredient name for use in filename
+  String _sanitizeFileName(String name) {
+    return name
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^\w\s-]'), '') // Remove special characters
+        .replaceAll(RegExp(r'\s+'), '-') // Replace spaces with hyphens
+        .replaceAll(RegExp(r'-+'), '-') // Replace multiple hyphens with single
+        .replaceAll(RegExp(r'^-|-$'), ''); // Remove leading/trailing hyphens
   }
 
   /// Delete an image from Supabase Storage

@@ -11,6 +11,7 @@ import '../../../shared/models/recipe_preferences.dart';
 class GenerateState {
   const GenerateState({
     this.ingredients = const [],
+    this.cookingMethods = const {},
     this.preferences = const RecipePreferences(),
     this.isLoading = false,
     this.imageLoading = false,
@@ -21,6 +22,7 @@ class GenerateState {
   });
 
   final List<String> ingredients;
+  final Map<String, String> cookingMethods; // ingredient name -> method name
   final RecipePreferences preferences;
   final bool isLoading;
   final bool imageLoading;
@@ -31,6 +33,7 @@ class GenerateState {
 
   GenerateState copyWith({
     List<String>? ingredients,
+    Map<String, String>? cookingMethods,
     RecipePreferences? preferences,
     bool? isLoading,
     bool? imageLoading,
@@ -41,6 +44,7 @@ class GenerateState {
   }) {
     return GenerateState(
       ingredients: ingredients ?? this.ingredients,
+      cookingMethods: cookingMethods ?? this.cookingMethods,
       preferences: preferences ?? this.preferences,
       isLoading: isLoading ?? this.isLoading,
       imageLoading: imageLoading ?? this.imageLoading,
@@ -114,14 +118,38 @@ class GenerateNotifier extends StateNotifier<GenerateState> {
   }
 
   void removeIngredient(String ingredient) {
+    final updatedCookingMethods = Map<String, String>.from(state.cookingMethods)
+      ..remove(ingredient);
     state = state.copyWith(
       ingredients: state.ingredients.where((e) => e != ingredient).toList(),
+      cookingMethods: updatedCookingMethods,
       error: null,
     );
   }
 
   void updatePreferences(RecipePreferences preferences) {
     state = state.copyWith(preferences: preferences, error: null);
+  }
+
+  void setCookingMethod(String ingredient, String method) {
+    final updated = Map<String, String>.from(state.cookingMethods);
+    updated[ingredient] = method;
+    state = state.copyWith(cookingMethods: updated);
+  }
+
+  void clearCookingMethod(String ingredient) {
+    final updated = Map<String, String>.from(state.cookingMethods);
+    updated.remove(ingredient);
+    state = state.copyWith(cookingMethods: updated);
+  }
+
+  void clearAllCookingMethods() {
+    state = state.copyWith(cookingMethods: {});
+  }
+
+  /// Update the generated recipe in state (used by screens to avoid accessing `state` directly)
+  void setGeneratedRecipe(Recipe recipe) {
+    state = state.copyWith(generatedRecipe: recipe);
   }
 
   Future<void> generateRecipe() async {
@@ -150,6 +178,7 @@ class GenerateNotifier extends StateNotifier<GenerateState> {
         recipe = await _openAI.generateRecipe(
           ingredients: state.ingredients,
           preferences: state.preferences,
+          cookingMethods: state.cookingMethods.isNotEmpty ? state.cookingMethods : null,
         );
       } catch (e, stackTrace) {
         if (kDebugMode) {
@@ -286,6 +315,7 @@ class GenerateNotifier extends StateNotifier<GenerateState> {
       // Generate image using Replicate
       final generatedImageUrl = await _openAI.generateRecipeImage(
         recipe: recipe,
+        cookingMethods: state.cookingMethods.isNotEmpty ? state.cookingMethods : null,
       );
       
       if (generatedImageUrl == null) {

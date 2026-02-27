@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:collection/collection.dart';
 import 'package:http/http.dart' as http;
 import '../core/constants/env.dart';
 import '../shared/models/recipe.dart';
 import '../shared/models/recipe_preferences.dart';
 import '../shared/models/recognized_ingredient.dart';
+import '../shared/models/ingredient.dart';
 import 'supabase_service.dart';
+import 'culinary_intelligence_service.dart';
+import 'cooking_methods_service.dart';
 
 /// OpenAI service for recipe generation
 class OpenAIService {
@@ -18,12 +20,18 @@ class OpenAIService {
   Future<Recipe> generateRecipe({
     required List<String> ingredients,
     required RecipePreferences preferences,
+    Map<String, String>? cookingMethods,
   }) async {
     if (Env.openAiApiKey.startsWith('YOUR_')) {
       throw Exception('OpenAI API key is not set. Update Env.openAiApiKey.');
     }
 
-    final prompt = _buildPrompt(ingredients, preferences);
+    // Fetch ingredient data with cooking methods guidance
+    final cookingGuidance = await _buildCookingGuidance(
+      ingredients,
+      cookingMethods: cookingMethods,
+    );
+    final prompt = await _buildPrompt(ingredients, preferences, cookingGuidance, cookingMethods);
 
     final response = await http.post(
       Uri.parse(_chatEndpoint),
@@ -301,8 +309,9 @@ class OpenAIService {
   /// Uses full recipe details to ensure image matches the actual dish.
   Future<String?> generateRecipeImage({
     required Recipe recipe,
+    Map<String, String>? cookingMethods,
   }) async {
-    final prompt = _buildImagePrompt(recipe);
+    final prompt = _buildImagePrompt(recipe, cookingMethods: cookingMethods);
 
     try {
       // Call Supabase Edge Function (handles CORS and Replicate API)
@@ -352,7 +361,7 @@ class OpenAIService {
 
   /// Build a detailed, high-quality image prompt that matches the recipe exactly
   /// Uses the visual_description from the recipe for chef-quality accuracy
-  String _buildImagePrompt(Recipe recipe) {
+  String _buildImagePrompt(Recipe recipe, {Map<String, String>? cookingMethods}) {
     // Use the visual description from the recipe if available
     final visualDesc = recipe.visualDescription;
     
@@ -370,9 +379,49 @@ class OpenAIService {
     // Extract cooking methods and techniques from instructions
     final cookingTechniques = _extractCookingTechniques(recipe.instructions);
     
+    // Add cooking method effects to visual description
+    String cookingMethodEffects = '';
+    if (cookingMethods != null && cookingMethods.isNotEmpty) {
+      final effects = <String>[];
+      for (final entry in cookingMethods.entries) {
+        if (entry.value == 'Raw' || entry.value.isEmpty) continue;
+        
+        switch (entry.value.toLowerCase()) {
+          case 'roasting':
+            effects.add('${entry.key}: golden brown, caramelized edges, rich color, tender interior');
+            break;
+          case 'pan-frying':
+            effects.add('${entry.key}: crispy golden sear, browned exterior, juicy interior');
+            break;
+          case 'grilling':
+            effects.add('${entry.key}: char marks, smoky appearance, grill lines');
+            break;
+          case 'sautéing':
+            effects.add('${entry.key}: lightly browned, glossy surface, aromatic');
+            break;
+          case 'braising':
+            effects.add('${entry.key}: deep brown, fork-tender, rich sauce coating');
+            break;
+          case 'steaming':
+            effects.add('${entry.key}: vibrant color, moist, tender texture');
+            break;
+          case 'boiling':
+            effects.add('${entry.key}: soft texture, bright color, clean appearance');
+            break;
+          default:
+            effects.add('${entry.key}: prepared by ${entry.value}');
+        }
+      }
+      if (effects.isNotEmpty) {
+        cookingMethodEffects = '\n\nCOOKING METHOD EFFECTS:\n${effects.join('\n')}';
+      }
+    }
+    
     // Build the visual description section
     String visualDescriptionSection = '';
     if (visualDesc != null) {
+      // Add cooking method effects to visual description
+      visualDescriptionSection += cookingMethodEffects;
       final descParts = <String>[];
       
       if (visualDesc.overall != null && visualDesc.overall!.isNotEmpty) {
@@ -410,12 +459,13 @@ class OpenAIService {
         descParts.add('PLATING STYLE: ${visualDesc.platingStyle}');
       }
       
-      visualDescriptionSection = descParts.join('\n');
+      visualDescriptionSection = descParts.join('\n') + cookingMethodEffects;
     }
     
-    // Build comprehensive, detailed prompt
+    // Build comprehensive, detailed prompt - modern editorial food blog/restaurant aesthetic
     final prompt = '''
-Professional food photography, chef-quality plating, Michelin-star presentation, 8k detail.
+Editorial food photography, modern restaurant website quality, premium food blog aesthetic. 
+CRITICAL: Always realistic – photorealistic, magazine-quality image. No hallucinations: only depict ingredients and elements that exist in this recipe. No invented textures, shapes, or fictional elements.
 
 DISH: ${recipe.title}
 ${recipe.description != null ? 'DESCRIPTION: ${recipe.description}' : ''}
@@ -427,32 +477,34 @@ INGREDIENTS IN DISH: $allIngredients
 PRIMARY VISIBLE INGREDIENTS: $primaryIngredients
 COOKING TECHNIQUES APPLIED: $cookingTechniques
 
-PHOTOGRAPHY REQUIREMENTS:
-- Show EXACTLY what is described in the visual description above
-- Each ingredient must show the effects of its cooking method (browning, caramelization, char marks, etc.)
-- Proportions must match the recipe (${recipe.servings ?? 2} servings)
-- Professional restaurant plating on a clean, elegant plate
-- Natural daylight, soft shadows, appetizing warm lighting
-- 45-degree angle, shallow depth of field
-- Clean, minimal background (slate, wood, or marble surface)
-- Food must look fresh, properly cooked, and photorealistic
+PHOTOGRAPHY STYLE (modern, contemporary):
+- Editorial food photography as seen on Bon Appétit, Saveur, or high-end restaurant websites
+- Soft natural daylight with warm golden undertones, diffused through a window
+- 40-degree overhead angle or 3/4 view - dynamic, appetizing perspective
+- Shallow depth of field, creamy bokeh, focus on the dish
+- Contemporary plating: artisan ceramics, light oak wood board, or warm stone surface
+- Organic textures: linen napkin, fresh herbs as garnish, natural negative space
+- Warm color grading, natural saturation - inviting and appetizing
+- Food must look freshly prepared, vibrant, properly cooked
+- Show cooking method effects: caramelization, char marks, glossy surfaces where appropriate
+- Proportions for ${recipe.servings ?? 2} servings
 
-TECHNICAL SPECIFICATIONS:
-- Style: Professional food photography, NOT illustration
-- No text, labels, watermarks, people, or hands
-- Natural, appetizing colors only
-- Accurate representation matching the visual description
-- Every visible ingredient must be from the recipe
+SCENE SETTING:
+- Clean, minimal background - light wood, terracotta, warm grey stone, or soft marble
+- No cluttered or dated elements
+- Sophisticated but approachable - food that looks both impressive and attainable
+- Photorealistic, high resolution
 
-STRICT RULES (what NOT to include):
-- NO ingredients not listed in the recipe
-- NO unrealistic food combinations
-- NO cartoon or illustration style
-- NO artificial or oversaturated colors
-- NO incorrect cooking methods or textures
-- NO generic stock photo appearance
+STRICT RULES:
+- NO text, labels, watermarks, people, hands, or cutlery in frame
+- NO cartoon, illustration, or AI-artifact style
+- NO oversaturated or artificial colors
+- NO ingredients not in the recipe – no hallucinations, no invented elements
+- NO 90s stock-photo aesthetic (sterile white plates, harsh flash)
+- ONLY ingredients from this recipe, accurately represented – strictly realistic, nothing fictional
+- Image must always look realistic and natural – no surreal, fantastical or AI-hallucinated elements
 
-This image must look like it was photographed in a professional kitchen, showing exactly what a chef would plate based on the recipe. The visual description above is the exact guide for how this dish should appear.
+The image should look like a professional food stylist and photographer created it for a contemporary food blog or upscale restaurant menu. Fresh, beautiful, modern, and always realistic.
 '''.trim();
 
     return prompt;
@@ -488,6 +540,7 @@ This image must look like it was photographed in a professional kitchen, showing
   }
 
   /// Extract visual keywords from instructions (cooking methods, techniques)
+  // ignore: unused_element
   String _extractVisualKeywords(List<String> instructions) {
     final keywords = <String>[];
     final visualTerms = [
@@ -510,6 +563,7 @@ This image must look like it was photographed in a professional kitchen, showing
   }
 
   /// Determine dish type (soup, salad, pasta, etc.)
+  // ignore: unused_element
   String _determineDishType(Recipe recipe) {
     final titleLower = recipe.title.toLowerCase();
     final descLower = (recipe.description ?? '').toLowerCase();
@@ -546,6 +600,7 @@ This image must look like it was photographed in a professional kitchen, showing
   }
 
   /// Determine presentation style
+  // ignore: unused_element
   String _determinePresentation(Recipe recipe) {
     final instructions = recipe.instructions.join(' ').toLowerCase();
     
@@ -716,10 +771,52 @@ Only include actual food items visible in the image.''',
     }
   }
 
-  String _buildPrompt(
+  /// Build cooking guidance for ingredients based on scientific data
+  Future<String> _buildCookingGuidance(
+    List<String> ingredientNames, {
+    Map<String, String>? cookingMethods,
+  }) async {
+    final guidance = <String>[];
+    
+    // Get ingredient data from database
+    final allIngredients = await CulinaryIntelligenceService.instance.getAllIngredients();
+    final cookingService = CookingMethodsService.instance;
+    
+    for (final name in ingredientNames) {
+      // Find ingredient in database
+      final ingredient = allIngredients.firstWhere(
+        (i) => i.name.toLowerCase() == name.toLowerCase() ||
+              i.nameNl?.toLowerCase() == name.toLowerCase(),
+        orElse: () => Ingredient(id: '', name: name),
+      );
+      
+      if (ingredient.id.isEmpty) {
+        // Ingredient not found, skip
+        continue;
+      }
+      
+      // Use provided cooking method or get optimal
+      final methodName = cookingMethods?[name] ?? 
+          (await cookingService.getOptimalCookingMethod(ingredient.id))?.nameEn ?? 'Raw';
+      
+      // Get cooking guidance
+      final guidanceText = await cookingService.getCookingGuidanceForIngredient(
+        ingredient,
+        methodName,
+      );
+      
+      guidance.add(guidanceText);
+    }
+    
+    return guidance.join('\n\n');
+  }
+
+  Future<String> _buildPrompt(
     List<String> ingredients,
     RecipePreferences preferences,
-  ) {
+    String cookingGuidance,
+    Map<String, String>? cookingMethods,
+  ) async {
     // Build prompt with culinary intelligence
     final ingredientsStr = ingredients.join(', ');
     final parts = <String>[];
@@ -748,34 +845,138 @@ Only include actual food items visible in the image.''',
       parts.add(preferences.dietaryRestrictions.join(', '));
     }
     if (preferences.maxTimeMinutes != null) {
-      parts.add('max ${preferences.maxTimeMinutes}min');
+parts.add('max ${preferences.maxTimeMinutes}min');
     }
     
     final prefsStr = parts.isEmpty ? '' : ' Preferences: ${parts.join(', ')}.';
     
-    return '''Create a chef-quality recipe using these ingredients: $ingredientsStr.$prefsStr
+    // Build cooking guidance section
+    final cookingGuidanceSection = cookingGuidance.isNotEmpty
+        ? '''
+
+INGREDIENT COOKING GUIDANCE (Based on culinary science - Harold McGee, Hervé This):
+Follow these scientific principles for each ingredient:
+$cookingGuidance
+
+IMPORTANT: Use the recommended cooking methods and temperatures. Consider how each cooking method transforms the ingredient:
+- Maillard reaction (140-165°C): Creates umami, browning, roasted aromas
+- Caramelization (160-180°C): Develops sweetness and golden color
+- Moist heat methods: Preserve structure and nutrients better
+- Dry heat methods: Create browning and develop complex flavors
+'''
+        : '';
+    
+    // Get visual presentation analysis
+    final analysis = await CulinaryIntelligenceService.instance.analyzeComposition(
+      ingredients,
+      cookingMethods: cookingMethods,
+    );
+    
+    // Build molecule type analysis
+    final moleculeTypes = <String, int>{};
+    for (final ingredient in analysis.ingredients) {
+      final type = ingredient.moleculeType.toString().split('.').last;
+      moleculeTypes[type] = (moleculeTypes[type] ?? 0) + 1;
+    }
+    final moleculeGuidance = moleculeTypes.isNotEmpty
+        ? '''
+
+MOLECULE TYPE DISTRIBUTION:
+${moleculeTypes.entries.map((e) => '- ${e.key}: ${e.value} ingredient(s)').join('\n')}
+
+UNDERSTANDING MOLECULE TYPES:
+- Water: Adds moisture, freshness, and helps dissolve flavors. High-water ingredients (tomatoes, cucumbers) add juiciness.
+- Fat: Carries fat-soluble flavors, creates richness and mouthfeel. Essential for browning and flavor release.
+- Carbohydrates: Provide structure, energy, and can caramelize. Starches (potatoes, rice) are filling carriers.
+- Protein: Provides umami, satisfaction, and structure. Proteins benefit from Maillard reaction for depth.
+
+Consider how each molecule type contributes to the dish's balance and satisfaction.
+'''
+        : '';
+    
+    // Build aroma completeness analysis
+    final allAromas = <String>{};
+    for (final ingredient in analysis.ingredients) {
+      allAromas.addAll(ingredient.aromaCategories);
+    }
+    final aromaGuidance = allAromas.isNotEmpty
+        ? '''
+
+AROMA COMPLEXITY:
+Aroma categories present: ${allAromas.join(', ')}
+${allAromas.length >= 3 ? '✓ Good aromatic complexity' : '⚠ Consider adding ingredients with different aroma profiles for more depth'}
+
+Aromas contribute to the dish's overall flavor experience. A complex aromatic profile (3+ distinct categories) creates a more interesting and complete dish.
+'''
+        : '';
+    
+    // Build mouthfeel variety analysis
+    final mouthfeels = <String>{};
+    for (final ingredient in analysis.ingredients) {
+      mouthfeels.add(ingredient.mouthfeel.toString().split('.').last);
+    }
+    final mouthfeelGuidance = mouthfeels.length >= 2
+        ? '✓ Good mouthfeel variety (${mouthfeels.length} different types)'
+        : '⚠ Consider adding ingredients with different mouthfeels for textural interest';
+    
+    final visualGuidance = analysis.visualPresentation != null
+        ? '''
+
+VISUAL PRESENTATION GUIDANCE:
+Color Palette: ${analysis.visualPresentation!.colorPalette.join(', ')}
+${analysis.visualPresentation!.hasColorContrast ? '✓ Good color contrast' : '⚠ Add more color variety'}
+${analysis.visualPresentation!.hasOddNumberElements ? '✓ Odd number of elements (good for plating)' : '⚠ Consider odd number of elements (3, 5, or 7)'}
+${analysis.visualPresentation!.hasGarnishPotential ? '✓ Has garnish potential' : '⚠ Add finishing touches (herbs, oils)'}
+${analysis.visualPresentation!.suggestions.isNotEmpty ? '\nSuggestions:\n${analysis.visualPresentation!.suggestions.map((s) => '- $s').join('\n')}' : ''}
+
+PLATING PRINCIPLES:
+- Use odd numbers (3, 5, or 7 elements) for visual appeal
+- Create height and depth on the plate
+- Use 30-40% negative space
+- Position carrier as focal point (slightly off-center, rule of thirds)
+- Strategic sauce placement (drizzle, dots, pool, or smear)
+- Every garnish must be edible and add flavor
+'''
+        : '';
+    
+    return '''Create a chef-quality recipe using these ingredients: $ingredientsStr.$prefsStr$cookingGuidanceSection$moleculeGuidance$aromaGuidance
+
+MOUTHFEEL VARIETY: $mouthfeelGuidance
+
+$visualGuidance
 
 You are a professional chef. Create a dish with:
 - Balanced gustatory profile (sweet, salty, sour, bitter, umami)
 - Textural variety (crispy, creamy, tender contrasts)
+- Complex aromatic profile (multiple aroma categories)
+- Varied mouthfeel (refreshing, rich, creamy, etc.)
 - Visual appeal worthy of a fine dining presentation
-- Proper technique for each ingredient
+- Proper technique for each ingredient based on scientific cooking principles
 
 CRITICAL REQUIREMENTS:
 1. The ingredients list MUST include ALL ingredients mentioned in the instructions (salt, pepper, oil, spices, etc.)
 2. Every ingredient used in any step must be in the ingredients list with proper amounts in METRIC units (grams, ml)
 3. Include all seasonings, condiments, and cooking ingredients
-4. Think about how each ingredient will look AFTER its cooking method
+4. Use the cooking methods and techniques recommended in the guidance above
+5. Think about how each ingredient will look AFTER its cooking method (browning, caramelization, texture changes)
+
+COOKING METHOD SELECTION:
+- Choose cooking methods that maximize flavor development (Maillard, caramelization)
+- Consider texture goals: crispy vs tender, crunchy vs soft
+- Match cooking method to ingredient type (protein, vegetable, starch)
+- Use optimal temperatures and times from the guidance above
 
 VISUAL DESCRIPTION REQUIREMENTS (for the visual_description field):
-Create a detailed, precise description of exactly how this dish looks when plated, as if describing to a food photographer:
-- Describe EACH ingredient's appearance AFTER cooking (color changes, texture, browning, caramelization)
-- Specify the RELATIVE SIZE/AMOUNT of each component visually (e.g., "3 medallions of chicken", "a pool of sauce")
-- Describe the ARRANGEMENT on the plate (center, scattered, stacked, layered)
-- Note any FINISHING touches (drizzle, dust, garnish placement)
-- Mention the COLOR PALETTE and CONTRASTS
-- Describe any SAUCE presentation (pool, drizzle, dots, smear)
-This description will be used to generate the dish image, so accuracy is essential.
+Create a detailed, precise description for MODERN editorial food photography (think Bon Appétit, high-end restaurant menus):
+- Describe EACH ingredient's appearance AFTER cooking (color, texture, browning, caramelization, glossy surfaces)
+- Specify RELATIVE SIZE/AMOUNT (e.g., "3 medallions", "generous pool of sauce")
+- Describe ARRANGEMENT: contemporary plating with intentional negative space, focal point, visual flow
+- FINISHING touches: fresh herb garnish, microgreens, edible flowers, olive oil drizzle
+- COLOR PALETTE: vibrant but natural, warm tones, appetizing contrasts
+- SAUCE presentation: artistic pool, elegant drizzle, or modern smear - avoid dated "sauce on the side"
+- plating_style: use "contemporary", "artisan", "farm-to-table", "rustic-elegant", or "minimalist" - avoid "fine-dining" (can feel stiff) or "traditional"
+- Emphasize fresh, vibrant, photogenic appearance
+This feeds the image generator - accuracy and modern aesthetic matter.
 
 Return JSON:
 {
@@ -785,14 +986,14 @@ Return JSON:
     "overall": string (one sentence overview of the plated dish),
     "main_element": {
       "ingredient": string,
-      "appearance": string (how it looks after cooking: color, texture, shape),
+      "appearance": string (how it looks after cooking: color, texture, shape, browning),
       "portion": string (size/amount visible),
       "position": string (where on plate)
     },
     "components": [
       {
         "ingredient": string,
-        "appearance": string,
+        "appearance": string (include cooking method effects),
         "portion": string,
         "placement": string
       }
@@ -807,7 +1008,7 @@ Return JSON:
     "plating_style": string (rustic, fine-dining, family-style, etc.)
   },
   "ingredients": [{"name": string, "amount": string}],
-  "instructions": [string] (4-6 steps, include technique details),
+  "instructions": [string] (4-6 steps, include technique details and cooking methods),
   "prep_time": integer,
   "cook_time": integer,
   "servings": integer,

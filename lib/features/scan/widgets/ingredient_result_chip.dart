@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../shared/models/recognized_ingredient.dart';
-import '../../../core/constants/colors.dart';
 
 class IngredientResultChip extends StatelessWidget {
   const IngredientResultChip({

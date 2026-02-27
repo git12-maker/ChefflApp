@@ -1,10 +1,26 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/recipe.dart';
-import '../../services/recipe_service.dart';
+import '../../services/recipe_service_simple.dart';
 
-/// Central recipe provider to share cached data between home/saved/generate.
-final recipeRepositoryProvider = Provider<RecipeService>((ref) {
-  return RecipeService.instance;
+/// Adapter for RecipeServiceSimple to match expected interface
+class RecipeServiceAdapter {
+  RecipeServiceAdapter(this._service);
+  final RecipeServiceSimple _service;
+
+  Future<List<Recipe>> getRecipes() => _service.getMyRecipes();
+
+  Future<void> toggleFavorite(String id, bool isFavorite) async {
+    await _service.toggleFavorite(id);
+  }
+
+  Future<void> deleteRecipe(String id) => _service.softDeleteRecipe(id);
+
+  Future<Map<String, int>> getStats() => _service.getStats();
+}
+
+/// Central recipe provider - uses simplified service
+final recipeRepositoryProvider = Provider<RecipeServiceAdapter>((ref) {
+  return RecipeServiceAdapter(RecipeServiceSimple.instance);
 });
 
 /// Cache state for recipes.
@@ -41,7 +57,7 @@ final recipeCacheProvider =
 class RecipeCacheNotifier extends StateNotifier<RecipeCacheState> {
   RecipeCacheNotifier(this._repo) : super(const RecipeCacheState());
 
-  final RecipeService _repo;
+  final RecipeServiceAdapter _repo;
 
   Future<void> loadAll({bool force = false}) async {
     if (state.isLoading) return;

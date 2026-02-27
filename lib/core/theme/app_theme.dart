@@ -4,6 +4,10 @@ import '../constants/colors.dart';
 
 /// App theme configuration
 /// Minimalist, premium, Spotify/Apple inspired design
+/// Typography: Montserrat + Merriweather (Website matching)
+/// - Headlines: Montserrat Bold/ExtraBold (geometric, modern, powerful)
+/// - Body: Merriweather Regular/Light (warm serif, excellent readability, classic elegance)
+/// - Labels: Montserrat (for UI consistency)
 class AppTheme {
   AppTheme._();
 
@@ -38,9 +42,9 @@ class AppTheme {
         centerTitle: false,
         backgroundColor: AppColors.lightBackground,
         foregroundColor: AppColors.lightOnBackground,
-        titleTextStyle: GoogleFonts.inter(
+        titleTextStyle: GoogleFonts.montserrat(
           fontSize: 24,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w800,
           color: AppColors.lightOnBackground,
           letterSpacing: -0.5,
         ),
@@ -80,9 +84,9 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: GoogleFonts.inter(
+          textStyle: GoogleFonts.montserrat(
             fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             letterSpacing: 0.5,
           ),
         ),
@@ -96,9 +100,9 @@ class AppTheme {
             borderRadius: BorderRadius.circular(12),
           ),
           side: BorderSide(color: AppColors.primary, width: 1.5),
-          textStyle: GoogleFonts.inter(
+          textStyle: GoogleFonts.montserrat(
             fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             letterSpacing: 0.5,
           ),
         ),
@@ -107,7 +111,7 @@ class AppTheme {
         style: TextButton.styleFrom(
           foregroundColor: AppColors.primary,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          textStyle: GoogleFonts.inter(
+          textStyle: GoogleFonts.montserrat(
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -152,9 +156,9 @@ class AppTheme {
         centerTitle: false,
         backgroundColor: AppColors.darkBackground,
         foregroundColor: AppColors.darkOnBackground,
-        titleTextStyle: GoogleFonts.inter(
+        titleTextStyle: GoogleFonts.montserrat(
           fontSize: 24,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w800,
           color: AppColors.darkOnBackground,
           letterSpacing: -0.5,
         ),
@@ -194,9 +198,9 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: GoogleFonts.inter(
+          textStyle: GoogleFonts.montserrat(
             fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             letterSpacing: 0.5,
           ),
         ),
@@ -210,9 +214,9 @@ class AppTheme {
             borderRadius: BorderRadius.circular(12),
           ),
           side: BorderSide(color: AppColors.primaryLight, width: 1.5),
-          textStyle: GoogleFonts.inter(
+          textStyle: GoogleFonts.montserrat(
             fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             letterSpacing: 0.5,
           ),
         ),
@@ -221,7 +225,7 @@ class AppTheme {
         style: TextButton.styleFrom(
           foregroundColor: AppColors.primaryLight,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          textStyle: GoogleFonts.inter(
+          textStyle: GoogleFonts.montserrat(
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -236,94 +240,110 @@ class AppTheme {
   }
 
   /// Typography scale
-  /// Clean, hierarchical typography using Inter font
+  /// Montserrat + Merriweather combination (Website matching):
+  /// - Display/Headline/Title styles: Montserrat Bold/ExtraBold (geometric, modern, powerful)
+  /// - Body styles: Merriweather Regular/Light (warm serif, excellent readability, classic elegance)
+  /// - Label styles: Montserrat (for UI consistency)
   static TextTheme _textTheme(Color baseColor) {
     return TextTheme(
-      displayLarge: GoogleFonts.inter(
+      // Display styles - Montserrat ExtraBold for powerful, modern feel
+      // Perfect for recipe titles, hero sections, special callouts
+      // Geometric, modern, powerful - matches website
+      displayLarge: GoogleFonts.montserrat(
         fontSize: 57,
-        fontWeight: FontWeight.w400,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.5,
+        color: baseColor,
+      ),
+      displayMedium: GoogleFonts.montserrat(
+        fontSize: 45,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.4,
+        color: baseColor,
+      ),
+      displaySmall: GoogleFonts.montserrat(
+        fontSize: 36,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.3,
+        color: baseColor,
+      ),
+      // Headline styles - Montserrat Bold/ExtraBold for powerful headers
+      // Perfect for section headers, app titles, navigation headers
+      // Geometric, modern, powerful - matches website
+      headlineLarge: GoogleFonts.montserrat(
+        fontSize: 32,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.3,
+        color: baseColor,
+      ),
+      headlineMedium: GoogleFonts.montserrat(
+        fontSize: 28,
+        fontWeight: FontWeight.w800,
         letterSpacing: -0.25,
         color: baseColor,
       ),
-      displayMedium: GoogleFonts.inter(
-        fontSize: 45,
-        fontWeight: FontWeight.w400,
-        letterSpacing: 0,
-        color: baseColor,
-      ),
-      displaySmall: GoogleFonts.inter(
-        fontSize: 36,
-        fontWeight: FontWeight.w400,
-        letterSpacing: 0,
-        color: baseColor,
-      ),
-      headlineLarge: GoogleFonts.inter(
-        fontSize: 32,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0,
-        color: baseColor,
-      ),
-      headlineMedium: GoogleFonts.inter(
-        fontSize: 28,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0,
-        color: baseColor,
-      ),
-      headlineSmall: GoogleFonts.inter(
+      headlineSmall: GoogleFonts.montserrat(
         fontSize: 24,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.2,
         color: baseColor,
       ),
-      titleLarge: GoogleFonts.inter(
+      // Title styles - Montserrat Bold for card titles, subsection headers
+      // Maintains modern, powerful character throughout
+      titleLarge: GoogleFonts.montserrat(
         fontSize: 22,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.15,
         color: baseColor,
       ),
-      titleMedium: GoogleFonts.inter(
+      titleMedium: GoogleFonts.montserrat(
         fontSize: 16,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.1,
+        color: baseColor,
+      ),
+      titleSmall: GoogleFonts.montserrat(
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.1,
+        color: baseColor,
+      ),
+      // Body styles - Merriweather Regular/Light for warm, readable content
+      // Perfect for recipe descriptions, ingredient lists, content
+      // Warm serif with excellent readability, classic elegance - matches website
+      bodyLarge: GoogleFonts.merriweather(
+        fontSize: 16,
+        fontWeight: FontWeight.w400,
         letterSpacing: 0.15,
         color: baseColor,
       ),
-      titleSmall: GoogleFonts.inter(
+      bodyMedium: GoogleFonts.merriweather(
         fontSize: 14,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w300,
         letterSpacing: 0.1,
         color: baseColor,
       ),
-      bodyLarge: GoogleFonts.inter(
-        fontSize: 16,
-        fontWeight: FontWeight.w400,
-        letterSpacing: 0.5,
-        color: baseColor,
-      ),
-      bodyMedium: GoogleFonts.inter(
-        fontSize: 14,
-        fontWeight: FontWeight.w400,
-        letterSpacing: 0.25,
-        color: baseColor,
-      ),
-      bodySmall: GoogleFonts.inter(
+      bodySmall: GoogleFonts.merriweather(
         fontSize: 12,
-        fontWeight: FontWeight.w400,
+        fontWeight: FontWeight.w300,
         letterSpacing: 0.4,
         color: baseColor,
       ),
-      labelLarge: GoogleFonts.inter(
+      // Label styles - Montserrat for UI labels, buttons, form inputs
+      // Maintains UI consistency with headlines
+      labelLarge: GoogleFonts.montserrat(
         fontSize: 14,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.1,
         color: baseColor,
       ),
-      labelMedium: GoogleFonts.inter(
+      labelMedium: GoogleFonts.montserrat(
         fontSize: 12,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.5,
         color: baseColor,
       ),
-      labelSmall: GoogleFonts.inter(
+      labelSmall: GoogleFonts.montserrat(
         fontSize: 11,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.5,

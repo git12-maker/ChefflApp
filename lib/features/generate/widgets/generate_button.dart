@@ -33,17 +33,21 @@ class GenerateButton extends StatelessWidget {
                     width: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        AppColors.white,
-                      ),
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Text(loadingLabel ?? 'Cooking up something tasty...'),
+                  Flexible(
+                    child: Text(
+                      loadingLabel ?? 'Generating...',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               )
-            : const Text('Generate Recipe'),
+            : const Text('Generate recipe'),
       ),
     );
   }
 }
+

@@ -3,6 +3,7 @@ import '../../../shared/models/recipe.dart';
 import '../../../shared/widgets/recipe_image.dart';
 import '../../../core/constants/colors.dart';
 
+/// Recipe card for horizontal scroll - fixed dimensions, no overflow
 class RecipeCardHorizontal extends StatelessWidget {
   const RecipeCardHorizontal({
     super.key,
@@ -13,121 +14,114 @@ class RecipeCardHorizontal extends StatelessWidget {
   final Recipe recipe;
   final VoidCallback onTap;
 
+  static const double cardWidth = 200;
+  static const double imageHeight = 130;
+  static const double contentHeight = 76;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
-    return Container(
-      width: 240,
-      margin: const EdgeInsets.only(right: 16, top: 4, bottom: 4), // Add vertical margin for shadow
+
+    return SizedBox(
+      width: cardWidth,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: AppBorderRadius.xlargeAll,
+          borderRadius: BorderRadius.circular(AppBorderRadius.large),
           child: Container(
             decoration: BoxDecoration(
               color: theme.colorScheme.surface,
-              borderRadius: AppBorderRadius.xlargeAll,
+              borderRadius: BorderRadius.circular(AppBorderRadius.large),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.3 : 0.1),
-                  blurRadius: 16,
+                  color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.08),
+                  blurRadius: 12,
                   offset: const Offset(0, 4),
-                  spreadRadius: 0,
                 ),
               ],
             ),
             child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(AppBorderRadius.xlarge),
-                ),
-                child: RecipeImage(
-                  title: recipe.title,
-                  imageUrl: recipe.imageUrl,
-                  height: 140,
-                  isLoading: false,
-                ),
-              ),
-              Flexible(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        recipe.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          if (recipe.cookTime != null || recipe.prepTime != null)
-                            _StatChip(
-                              icon: Icons.timer_outlined,
-                              label:
-                                  '${(recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)}m',
-                            ),
-                          if (recipe.difficulty != null)
-                            _StatChip(
-                              icon: Icons.terrain_outlined,
-                              label: recipe.difficulty!,
-                            ),
-                        ],
-                      ),
-                    ],
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(AppBorderRadius.large),
+                  ),
+                  child: SizedBox(
+                    height: imageHeight,
+                    width: double.infinity,
+                    child: RecipeImage(
+                      title: recipe.title,
+                      imageUrl: recipe.imageUrl,
+                      height: imageHeight,
+                      isLoading: false,
+                    ),
                   ),
                 ),
-              ),
-            ],
+                SizedBox(
+                  height: contentHeight,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            recipe.title,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              height: 1.2,
+                              fontSize: 13,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            if (recipe.cookTime != null || recipe.prepTime != null)
+                              _StatPill(
+                                label: '${(recipe.prepTime ?? 0) + (recipe.cookTime ?? 0)} min',
+                              ),
+                            if (recipe.difficulty != null) ...[
+                              const SizedBox(width: 8),
+                              _StatPill(label: recipe.difficulty!),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
 }
 
-class _StatChip extends StatelessWidget {
-  const _StatChip({required this.icon, required this.label});
-  final IconData icon;
+class _StatPill extends StatelessWidget {
+  const _StatPill({required this.label});
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.08),
-        borderRadius: AppBorderRadius.smallAll,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: AppColors.primary),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
-                ),
+    return Text(
+      label,
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: AppColors.primary,
+            fontWeight: FontWeight.w600,
+            fontSize: 10,
           ),
-        ],
-      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 }

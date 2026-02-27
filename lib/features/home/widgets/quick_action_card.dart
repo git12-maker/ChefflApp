@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/colors.dart';
 
+/// Compact quick action - horizontal layout, no overflow
 class QuickActionCard extends StatelessWidget {
   const QuickActionCard({
     super.key,
@@ -19,89 +20,77 @@ class QuickActionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4), // Add margin for shadow
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: AppBorderRadius.xlargeAll,
-          child: Container(
-            height: 140, // Fixed height for consistent card sizes
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: isDark
-                    ? [
-                        AppColors.primaryDark.withOpacity(0.3),
-                        AppColors.primary.withOpacity(0.2),
-                      ]
-                    : [
-                        AppColors.primary.withOpacity(0.08),
-                        AppColors.accent.withOpacity(0.05),
-                      ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: AppBorderRadius.xlargeAll,
-              border: Border.all(
-                color: isDark
-                    ? AppColors.primary.withOpacity(0.2)
-                    : AppColors.primary.withOpacity(0.15),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(isDark ? 0.15 : 0.08),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                  spreadRadius: 0,
-                ),
-              ],
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppBorderRadius.large),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: isDark
+                  ? [
+                      AppColors.primaryDark.withValues(alpha: 0.25),
+                      AppColors.primary.withValues(alpha: 0.15),
+                    ]
+                  : [
+                      AppColors.primary.withValues(alpha: 0.06),
+                      AppColors.accent.withValues(alpha: 0.04),
+                    ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(isDark ? 0.2 : 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    icon,
-                    color: AppColors.primary,
-                    size: 24,
-                  ),
+            borderRadius: BorderRadius.circular(AppBorderRadius.large),
+            border: Border.all(
+              color: AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.12),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.12),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                Column(
+                child: Icon(icon, color: AppColors.primary, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
-                      style: theme.textTheme.titleMedium?.copyWith(
+                      style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
-                        letterSpacing: -0.3,
                       ),
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       subtitle,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
-                        fontSize: 12,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        fontSize: 11,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 12,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              ),
+            ],
           ),
         ),
       ),

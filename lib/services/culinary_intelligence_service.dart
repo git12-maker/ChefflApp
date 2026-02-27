@@ -1,7 +1,7 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../shared/models/ingredient.dart';
+import 'cooking_methods_service.dart';
 
 /// Culinary Intelligence Service
 /// 
@@ -24,8 +24,20 @@ class CulinaryIntelligenceService {
   Map<String, List<Ingredient>>? _categoryCache;
 
   /// Analyze the composition of selected ingredients
-  Future<CompositionAnalysis> analyzeComposition(List<String> ingredientNames) async {
+  /// 
+  /// [cookingMethods] is an optional map of ingredient name -> cooking method name
+  /// If provided, ingredients will be transformed based on cooking method effects
+  Future<CompositionAnalysis> analyzeComposition(
+    List<String> ingredientNames, {
+    Map<String, String>? cookingMethods,
+  }) async {
     final ingredients = await _getIngredientsByNames(ingredientNames);
+    
+    // Apply cooking methods if provided
+    final transformedIngredients = await _applyCookingMethods(
+      ingredients,
+      cookingMethods,
+    );
     
     // Debug: Log matched ingredients
     debugPrint('🔍 Analyzing ${ingredientNames.length} ingredients: ${ingredientNames.join(", ")}');
@@ -39,10 +51,10 @@ class CulinaryIntelligenceService {
     }
     
     // Filter out placeholders for analysis (they have no flavor data)
-    final validIngredients = ingredients.where((i) => 
+    final validIngredients = transformedIngredients.where((i) => 
         i.id.isNotEmpty && !i.id.startsWith('placeholder')).toList();
     
-    // Calculate combined flavor profile (only from valid ingredients)
+    // Calculate combined flavor profile (using transformed ingredients)
     final combinedProfile = _calculateCombinedFlavorProfile(validIngredients);
     
     debugPrint('🎨 Combined flavor profile: sweet=${combinedProfile.sweetness.toStringAsFixed(2)}, salty=${combinedProfile.saltiness.toStringAsFixed(2)}, sour=${combinedProfile.sourness.toStringAsFixed(2)}, bitter=${combinedProfile.bitterness.toStringAsFixed(2)}, umami=${combinedProfile.umami.toStringAsFixed(2)}');
@@ -68,6 +80,9 @@ class CulinaryIntelligenceService {
       combinedProfile,
     );
 
+    // Analyze visual presentation if we have ingredient data
+    final visualAnalysis = _analyzeVisualPresentation(validIngredients);
+    
     return CompositionAnalysis(
       ingredients: validIngredients,
       flavorProfile: combinedProfile,
@@ -76,7 +91,155 @@ class CulinaryIntelligenceService {
       missingElements: missingElements,
       suggestions: suggestions,
       overallScore: _calculateOverallScore(combinedProfile, textureAnalysis, carrier, missingElements),
+      visualPresentation: visualAnalysis,
     );
+  }
+
+  /// Apply cooking method transformations to a list of ingredients
+  Future<List<Ingredient>> _applyCookingMethods(
+    List<Ingredient> ingredients,
+    Map<String, String>? cookingMethods,
+  ) async {
+    if (cookingMethods == null || cookingMethods.isEmpty) {
+      return ingredients; // No transformations
+    }
+    
+    final transformed = <Ingredient>[];
+    
+    for (final ingredient in ingredients) {
+      final methodName = cookingMethods[ingredient.name];
+      if (methodName != null && methodName.isNotEmpty && methodName != 'Raw') {
+        final transformedIngredient = await _applyCookingMethod(
+          ingredient,
+          methodName,
+        );
+        transformed.add(transformedIngredient);
+      } else {
+        transformed.add(ingredient); // No method specified or Raw
+      }
+    }
+    
+    return transformed;
+  }
+
+  /// Apply a single cooking method transformation to an ingredient
+  Future<Ingredient> _applyCookingMethod(
+    Ingredient ingredient,
+    String methodName,
+  ) async {
+    try {
+      // Fetch cooking effect
+      final effect = await CookingMethodsService.instance.getCookingEffect(
+        ingredient.id,
+        methodName,
+      );
+      
+      if (effect == null) {
+        // No specific data, return original
+        debugPrint('⚠️ No cooking effect data for ${ingredient.name} with $methodName');
+        return ingredient;
+      }
+      
+      // Apply flavor profile delta
+      final baseProfile = ingredient.flavorProfile;
+      final delta = effect.flavorDelta;
+      final transformedProfile = FlavorProfile(
+        sweetness: (baseProfile.sweetness + (delta?.sweetness ?? 0.0)).clamp(0.0, 1.0),
+        saltiness: (baseProfile.saltiness + (delta?.saltiness ?? 0.0)).clamp(0.0, 1.0),
+        sourness: (baseProfile.sourness + (delta?.sourness ?? 0.0)).clamp(0.0, 1.0),
+        bitterness: (baseProfile.bitterness + (delta?.bitterness ?? 0.0)).clamp(0.0, 1.0),
+        umami: (baseProfile.umami + (delta?.umami ?? 0.0)).clamp(0.0, 1.0),
+      );
+      
+      // Apply aroma changes
+      final transformedAromaCategories = [
+        ...ingredient.aromaCategories.where(
+          (cat) => !effect.aromaCategoriesRemoved.contains(cat)
+        ),
+        ...effect.aromaCategoriesAdded,
+      ];
+      final transformedAromaIntensity = (ingredient.aromaIntensity + 
+          (effect.aromaIntensityChange ?? 0.0)).clamp(0.0, 1.0);
+      
+      // Apply texture changes
+      // Convert texture category strings to TextureCategory enums
+      final removedTextures = effect.textureCategoriesRemoved.map((str) {
+        try {
+          return TextureCategory.values.firstWhere(
+            (e) => e.name.toLowerCase() == str.toLowerCase(),
+            orElse: () => TextureCategory.soft,
+          );
+        } catch (_) {
+          return TextureCategory.soft;
+        }
+      }).toList();
+      
+      final addedTextures = effect.textureCategoriesAdded.map((str) {
+        try {
+          return TextureCategory.values.firstWhere(
+            (e) => e.name.toLowerCase() == str.toLowerCase(),
+            orElse: () => TextureCategory.soft,
+          );
+        } catch (_) {
+          return TextureCategory.soft;
+        }
+      }).toList();
+      
+      final transformedTextures = [
+        ...ingredient.textures.where(
+          (tex) => !removedTextures.contains(tex)
+        ),
+        ...addedTextures,
+      ];
+      
+      // Apply mouthfeel change if specified
+      final transformedMouthfeel = effect.mouthfeelChange != null
+          ? _parseMouthfeel(effect.mouthfeelChange!)
+          : ingredient.mouthfeel;
+      
+      // Create transformed ingredient
+      return Ingredient(
+        id: ingredient.id,
+        name: ingredient.name,
+        nameNl: ingredient.nameNl,
+        description: ingredient.description,
+        categoryId: ingredient.categoryId,
+        categoryName: ingredient.categoryName,
+        flavorProfile: transformedProfile,
+        role: ingredient.role,
+        moleculeType: ingredient.moleculeType,
+        textures: transformedTextures,
+        mouthfeel: transformedMouthfeel,
+        aromaCategories: transformedAromaCategories,
+        aromaIntensity: transformedAromaIntensity,
+        pairingAffinities: ingredient.pairingAffinities,
+        preparationMethods: ingredient.preparationMethods,
+        imageUrl: ingredient.imageUrl,
+        season: ingredient.season,
+        culinaryUses: ingredient.culinaryUses,
+      );
+    } catch (e) {
+      debugPrint('❌ Error applying cooking method $methodName to ${ingredient.name}: $e');
+      return ingredient; // Fallback to original
+    }
+  }
+
+  /// Parse mouthfeel string to MouthfeelCategory enum
+  MouthfeelCategory _parseMouthfeel(String value) {
+    switch (value.toLowerCase()) {
+      case 'astringent':
+        return MouthfeelCategory.astringent;
+      case 'coating':
+        return MouthfeelCategory.coating;
+      case 'dry':
+        return MouthfeelCategory.dry;
+      case 'refreshing':
+        return MouthfeelCategory.refreshing;
+      case 'rich':
+        return MouthfeelCategory.rich;
+      default:
+        return MouthfeelCategory.refreshing;
+    }
   }
 
   /// Get all ingredients from database
@@ -96,7 +259,9 @@ class CulinaryIntelligenceService {
             flavor_profile,
             texture,
             texture_en,
+            texture_categories,
             intensity,
+            aroma_intensity,
             season,
             season_en,
             preparation_methods,
@@ -190,7 +355,7 @@ class CulinaryIntelligenceService {
     
     for (final name in names) {
       final nameLower = name.toLowerCase().trim();
-      Ingredient? match;
+      Ingredient match = Ingredient(id: '', name: '');
       
       // Strategy 1: Exact match (case-insensitive)
       match = all.firstWhere(
@@ -203,7 +368,7 @@ class CulinaryIntelligenceService {
       );
       
       // Strategy 2: Word-based match (handles "chicken breast" matching "chicken")
-      if (match == null || match.id.isEmpty) {
+      if (match.id.isEmpty) {
         final nameWords = nameLower.split(RegExp(r'[\s,-]+')).where((w) => w.length > 2).toList();
         for (final ingredient in all) {
           final iName = ingredient.name.toLowerCase();
@@ -217,12 +382,12 @@ class CulinaryIntelligenceService {
               break;
             }
           }
-          if (match != null && match.id.isNotEmpty) break;
+          if (match.id.isNotEmpty) break;
         }
       }
       
       // Strategy 3: Partial substring match
-      if (match == null || match.id.isEmpty) {
+      if (match.id.isEmpty) {
         match = all.firstWhere(
           (i) {
             final iName = i.name.toLowerCase();
@@ -235,18 +400,11 @@ class CulinaryIntelligenceService {
         );
       }
       
-      // If still no match, create a placeholder with default flavor profile
-      if (match == null || match.id.isEmpty) {
-        // Create a basic ingredient placeholder - we'll use default flavor profile
-        match = Ingredient(
-          id: 'placeholder-${name.hashCode}',
-          name: name,
-          flavorProfile: const FlavorProfile(), // Default - no flavor data
-        );
-        debugPrint('No match found for ingredient: $name');
+      if (match.id.isNotEmpty) {
+        result.add(match);
+      } else {
+        debugPrint('No database match found for user ingredient: $name');
       }
-      
-      result.add(match);
     }
     
     return result;
@@ -284,30 +442,35 @@ class CulinaryIntelligenceService {
     return null;
   }
 
-  /// Analyze texture variety
+  /// Analyze texture variety using structured texture_categories and mouthfeel
   TextureAnalysis _analyzeTextures(List<Ingredient> ingredients) {
     final allTextures = <TextureCategory>{};
     final mouthfeels = <MouthfeelCategory>{};
     
     for (final ingredient in ingredients) {
-      allTextures.addAll(ingredient.textures);
+      // Use structured texture_categories (preferred) or fallback to parsed textures
+      if (ingredient.textures.isNotEmpty) {
+        allTextures.addAll(ingredient.textures);
+      }
+      // Use mouthfeel from database
       mouthfeels.add(ingredient.mouthfeel);
     }
     
-    // Check for key texture contrasts
+    // Check for key texture contrasts (scientific principle: contrast creates interest)
     final hasCrispy = allTextures.contains(TextureCategory.crispy) || 
                       allTextures.contains(TextureCategory.crunchy);
     final hasCreamy = allTextures.contains(TextureCategory.creamy) || 
                       allTextures.contains(TextureCategory.silky);
-    final hasTender = allTextures.contains(TextureCategory.tender) || 
-                      allTextures.contains(TextureCategory.soft);
+    
+    // Check for mouthfeel variety (coating vs refreshing, rich vs astringent)
+    final hasMouthfeelVariety = mouthfeels.length >= 2;
     
     return TextureAnalysis(
       textures: allTextures.toList(),
       mouthfeels: mouthfeels.toList(),
       hasCrispyCreamy: hasCrispy && hasCreamy,
-      hasVariety: allTextures.length >= 2,
-      score: allTextures.length / 4.0, // Max 4 textures for perfect score
+      hasVariety: allTextures.length >= 2 || hasMouthfeelVariety,
+      score: (allTextures.length / 4.0).clamp(0.0, 1.0), // Max 4 textures for perfect score
     );
   }
 
@@ -392,24 +555,45 @@ class CulinaryIntelligenceService {
     final suggestions = <IngredientSuggestion>[];
     final all = await getAllIngredients();
     final currentIds = currentIngredients.map((i) => i.id).toSet();
+    final cookingService = CookingMethodsService.instance;
     
     for (final missing in missingElements) {
       final candidates = _findCandidatesForMissing(all, missing, currentIds);
       
-      for (final candidate in candidates.take(3)) {
+      // Include all candidates for each missing element (no limit)
+      for (final candidate in candidates) {
+        // Get optimal cooking method for this ingredient
+        final optimalMethod = await cookingService.getOptimalCookingMethod(candidate.id);
+        
         suggestions.add(IngredientSuggestion(
           ingredient: candidate,
           reason: _getSuggestionReason(missing, candidate),
           missingElement: missing.type,
           priority: missing.priority,
+          optimalCookingMethod: optimalMethod?.nameEn,
         ));
       }
     }
     
-    // Sort by priority
-    suggestions.sort((a, b) => a.priority.index.compareTo(b.priority.index));
+    // Remove duplicates (same ingredient for different missing elements)
+    final seen = <String>{};
+    final uniqueSuggestions = <IngredientSuggestion>[];
+    for (final suggestion in suggestions) {
+      if (!seen.contains(suggestion.ingredient.id)) {
+        seen.add(suggestion.ingredient.id);
+        uniqueSuggestions.add(suggestion);
+      }
+    }
     
-    return suggestions.take(8).toList();
+    // Sort by priority (high first), then by ingredient name for consistency
+    uniqueSuggestions.sort((a, b) {
+      final priorityCompare = a.priority.index.compareTo(b.priority.index);
+      if (priorityCompare != 0) return priorityCompare;
+      return a.ingredient.name.compareTo(b.ingredient.name);
+    });
+    
+    // Return all unique suggestions (no limit)
+    return uniqueSuggestions;
   }
 
   /// Find candidates to fill a missing element
@@ -454,7 +638,7 @@ class CulinaryIntelligenceService {
         ).toList();
         
       case ElementType.freshness:
-        // Fresh herbs and finishing ingredients
+        // Fresh herbs and finishing ingredients (use aroma_categories for better detection)
         final freshIngredients = ['parsley', 'cilantro', 'basil', 'mint', 'dill',
             'chive', 'green onion', 'scallion', 'microgreen', 'sprout'];
         return all.where((i) {
@@ -462,6 +646,8 @@ class CulinaryIntelligenceService {
           return !excludeIds.contains(i.id) && 
               (i.role == IngredientRole.finishing ||
                i.role == IngredientRole.accent ||
+               i.aromaCategories.contains('green') ||
+               i.aromaCategories.contains('fresh') ||
                freshIngredients.any((f) => nameLower.contains(f)));
         }).toList();
         
@@ -475,26 +661,77 @@ class CulinaryIntelligenceService {
               (i.moleculeType == MoleculeType.fat ||
                richIngredients.any((r) => nameLower.contains(r)));
         }).toList();
+        
+      case ElementType.aroma:
+        // Ingredients with specific aroma categories
+        // Try to find ingredients that fill the missing aroma type
+        return all.where((i) {
+          if (excludeIds.contains(i.id)) return false;
+          // Prefer ingredients with strong aromas
+          return i.aromaIntensity >= 0.5 && i.aromaCategories.isNotEmpty;
+        }).toList();
+        
+      case ElementType.mouthfeel:
+        // Ingredients with different mouthfeel than current selection
+        final currentMouthfeels = <MouthfeelCategory>{};
+        // This would need to be passed in, but for now use a general approach
+        return all.where((i) {
+          if (excludeIds.contains(i.id)) return false;
+          // Prefer ingredients with distinct mouthfeel
+          return i.mouthfeel != MouthfeelCategory.refreshing || 
+                 i.moleculeType == MoleculeType.fat ||
+                 i.moleculeType == MoleculeType.protein;
+        }).toList();
+        
+      case ElementType.cookingMethod:
+        // For cooking method suggestions, return all ingredients
+        // The actual suggestion logic is handled elsewhere
+        return all.where((i) => !excludeIds.contains(i.id)).toList();
     }
   }
 
   /// Get human-readable reason for a suggestion
   String _getSuggestionReason(MissingElement missing, Ingredient ingredient) {
+    // Add molecule type context for better explanations
+    String moleculeContext = '';
+    switch (ingredient.moleculeType) {
+      case MoleculeType.water:
+        moleculeContext = ' (adds moisture and freshness)';
+        break;
+      case MoleculeType.fat:
+        moleculeContext = ' (adds richness and carries flavors)';
+        break;
+      case MoleculeType.carbohydrate:
+        moleculeContext = ' (adds energy and structure)';
+        break;
+      case MoleculeType.protein:
+        moleculeContext = ' (adds satisfaction and umami)';
+        break;
+      default:
+        break;
+    }
+    
     switch (missing.type) {
       case ElementType.carrier:
-        return '${ingredient.name} can be the main element of your dish';
+        return '${ingredient.name} can be the main element of your dish$moleculeContext';
       case ElementType.umami:
-        return '${ingredient.name} adds savory depth (umami)';
+        return '${ingredient.name} adds savory depth (umami)$moleculeContext';
       case ElementType.acid:
-        return '${ingredient.name} adds brightness and balance';
+        return '${ingredient.name} adds brightness and balance$moleculeContext';
       case ElementType.texture:
-        return '${ingredient.name} adds textural contrast';
+        return '${ingredient.name} adds textural contrast$moleculeContext';
       case ElementType.crunch:
-        return '${ingredient.name} adds a satisfying crunch';
+        return '${ingredient.name} adds a satisfying crunch$moleculeContext';
       case ElementType.freshness:
-        return '${ingredient.name} adds fresh, vibrant notes';
+        return '${ingredient.name} adds fresh, vibrant notes$moleculeContext';
       case ElementType.richness:
-        return '${ingredient.name} adds richness and satisfaction';
+        return '${ingredient.name} adds richness and satisfaction$moleculeContext';
+      case ElementType.aroma:
+        return '${ingredient.name} adds aromatic complexity$moleculeContext';
+      case ElementType.mouthfeel:
+        return '${ingredient.name} adds mouthfeel variety$moleculeContext';
+      case ElementType.cookingMethod:
+        return 'Consider optimal cooking method for ${ingredient.name}$moleculeContext';
     }
   }
 
@@ -537,11 +774,101 @@ class CulinaryIntelligenceService {
     return score.clamp(0, 100);
   }
 
+  /// Analyze visual presentation based on ingredients
+  VisualPresentationAnalysis _analyzeVisualPresentation(List<Ingredient> ingredients) {
+    // Collect color palette from ingredients
+    final colorPalette = <String>{};
+    for (final ingredient in ingredients) {
+      // Infer colors from ingredient names and categories
+      final nameLower = ingredient.name.toLowerCase();
+      if (nameLower.contains('tomato') || nameLower.contains('red pepper')) {
+        colorPalette.add('red');
+      }
+      if (nameLower.contains('carrot') || nameLower.contains('orange')) {
+        colorPalette.add('orange');
+      }
+      if (nameLower.contains('lettuce') || nameLower.contains('green') || 
+          nameLower.contains('basil') || nameLower.contains('parsley')) {
+        colorPalette.add('green');
+      }
+      if (nameLower.contains('egg') || nameLower.contains('cheese') || 
+          nameLower.contains('potato')) {
+        colorPalette.add('yellow/cream');
+      }
+      if (nameLower.contains('beet') || nameLower.contains('purple')) {
+        colorPalette.add('purple');
+      }
+      if (nameLower.contains('mushroom') || nameLower.contains('meat') || 
+          nameLower.contains('beef')) {
+        colorPalette.add('brown');
+      }
+    }
+    
+    // Check plating principles
+    final hasColorContrast = colorPalette.length >= 3;
+    final hasOddNumberElements = ingredients.length % 2 == 1 || ingredients.length >= 3;
+    
+    // Check for garnish potential (herbs, finishing ingredients)
+    final hasGarnishPotential = ingredients.any((i) => 
+        i.role == IngredientRole.finishing ||
+        i.aromaCategories.contains('green') ||
+        i.name.toLowerCase().contains('herb'));
+    
+    return VisualPresentationAnalysis(
+      colorPalette: colorPalette.toList(),
+      hasColorContrast: hasColorContrast,
+      hasOddNumberElements: hasOddNumberElements,
+      hasGarnishPotential: hasGarnishPotential,
+      suggestions: _getVisualPresentationSuggestions(ingredients, colorPalette),
+    );
+  }
+  
+  List<String> _getVisualPresentationSuggestions(
+    List<Ingredient> ingredients,
+    Set<String> colorPalette,
+  ) {
+    final suggestions = <String>[];
+    
+    if (colorPalette.length < 3) {
+      suggestions.add('Add ingredients with contrasting colors (red, green, yellow) for visual appeal');
+    }
+    
+    if (ingredients.length % 2 == 0 && ingredients.length < 4) {
+      suggestions.add('Consider adding one more element for odd-number plating (3, 5, or 7 elements)');
+    }
+    
+    final hasGarnish = ingredients.any((i) => 
+        i.role == IngredientRole.finishing ||
+        i.aromaCategories.contains('green'));
+    if (!hasGarnish) {
+      suggestions.add('Add fresh herbs or finishing touches for color and aroma');
+    }
+    
+    return suggestions;
+  }
+
   /// Clear the cache (call when data might have changed)
   void clearCache() {
     _ingredientsCache = null;
     _categoryCache = null;
   }
+}
+
+/// Analysis of visual presentation
+class VisualPresentationAnalysis {
+  const VisualPresentationAnalysis({
+    required this.colorPalette,
+    required this.hasColorContrast,
+    required this.hasOddNumberElements,
+    required this.hasGarnishPotential,
+    required this.suggestions,
+  });
+
+  final List<String> colorPalette;
+  final bool hasColorContrast;
+  final bool hasOddNumberElements;
+  final bool hasGarnishPotential;
+  final List<String> suggestions;
 }
 
 /// Result of composition analysis
@@ -554,6 +881,7 @@ class CompositionAnalysis {
     required this.missingElements,
     required this.suggestions,
     required this.overallScore,
+    this.visualPresentation,
   });
 
   final List<Ingredient> ingredients;
@@ -563,6 +891,7 @@ class CompositionAnalysis {
   final List<MissingElement> missingElements;
   final List<IngredientSuggestion> suggestions;
   final int overallScore; // 0-100
+  final VisualPresentationAnalysis? visualPresentation;
 }
 
 /// Analysis of texture composition
@@ -591,6 +920,9 @@ enum ElementType {
   crunch,
   freshness,
   richness,
+  aroma,
+  mouthfeel,
+  cookingMethod,
 }
 
 /// Priority levels for missing elements
@@ -620,10 +952,12 @@ class IngredientSuggestion {
     required this.reason,
     required this.missingElement,
     required this.priority,
+    this.optimalCookingMethod,
   });
 
   final Ingredient ingredient;
   final String reason;
   final ElementType missingElement;
   final MissingPriority priority;
+  final String? optimalCookingMethod;
 }

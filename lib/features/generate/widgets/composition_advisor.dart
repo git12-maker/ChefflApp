@@ -16,7 +16,6 @@ class CompositionAdvisor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -47,6 +46,12 @@ class CompositionAdvisor extends StatelessWidget {
         if (analysis.carrier != null) ...[
           const SizedBox(height: 16),
           _buildCarrierInfo(context),
+        ],
+        
+        // Visual presentation analysis
+        if (analysis.visualPresentation != null) ...[
+          const SizedBox(height: 16),
+          _buildVisualPresentation(context),
         ],
       ],
     );
@@ -191,8 +196,6 @@ class CompositionAdvisor extends StatelessWidget {
   }
 
   Widget _buildSuggestions(BuildContext context) {
-    final theme = Theme.of(context);
-    
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -248,6 +251,164 @@ class CompositionAdvisor extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildVisualPresentation(BuildContext context) {
+    final theme = Theme.of(context);
+    final visual = analysis.visualPresentation!;
+    
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.colorScheme.primary.withOpacity(0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.palette_outlined,
+                size: 18,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Visual Presentation',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          
+          // Color palette
+          if (visual.colorPalette.isNotEmpty) ...[
+            Row(
+              children: [
+                Icon(
+                  Icons.color_lens_outlined,
+                  size: 14,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Colors: ',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Wrap(
+                  spacing: 6,
+                  children: visual.colorPalette.map((color) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        color,
+                        style: theme.textTheme.labelSmall,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
+          
+          // Plating principles
+          _buildPlatingPrinciple(
+            context,
+            'Color contrast',
+            visual.hasColorContrast,
+            Icons.contrast,
+          ),
+          const SizedBox(height: 6),
+          _buildPlatingPrinciple(
+            context,
+            'Odd number elements',
+            visual.hasOddNumberElements,
+            Icons.numbers,
+          ),
+          const SizedBox(height: 6),
+          _buildPlatingPrinciple(
+            context,
+            'Garnish potential',
+            visual.hasGarnishPotential,
+            Icons.eco,
+          ),
+          
+          // Suggestions
+          if (visual.suggestions.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ...visual.suggestions.map((suggestion) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.lightbulb_outline,
+                      size: 14,
+                      color: Colors.amber,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        suggestion,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildPlatingPrinciple(
+    BuildContext context,
+    String label,
+    bool isGood,
+    IconData icon,
+  ) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Icon(
+          isGood ? Icons.check_circle_outline : Icons.info_outline,
+          size: 16,
+          color: isGood ? Colors.green : Colors.orange,
+        ),
+        const SizedBox(width: 6),
+        Icon(
+          icon,
+          size: 14,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -322,6 +483,12 @@ class _MissingElementChip extends StatelessWidget {
         return Colors.green;
       case ElementType.richness:
         return Colors.orange;
+      case ElementType.aroma:
+        return Colors.indigo;
+      case ElementType.mouthfeel:
+        return Colors.pink;
+      case ElementType.cookingMethod:
+        return Colors.brown;
     }
   }
 
@@ -340,6 +507,12 @@ class _MissingElementChip extends StatelessWidget {
         return Icons.spa;
       case ElementType.richness:
         return Icons.water_drop;
+      case ElementType.aroma:
+        return Icons.air;
+      case ElementType.mouthfeel:
+        return Icons.sentiment_satisfied;
+      case ElementType.cookingMethod:
+        return Icons.restaurant_menu;
     }
   }
 
@@ -359,6 +532,12 @@ class _MissingElementChip extends StatelessWidget {
         return 'Freshness';
       case ElementType.richness:
         return 'Richness';
+      case ElementType.aroma:
+        return 'Aroma';
+      case ElementType.mouthfeel:
+        return 'Mouthfeel';
+      case ElementType.cookingMethod:
+        return 'Cooking method';
     }
   }
 }
@@ -378,7 +557,9 @@ class _SuggestionChip extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     
     return Tooltip(
-      message: suggestion.reason,
+      message: suggestion.optimalCookingMethod != null
+          ? '${suggestion.reason}\n\nRecommended: ${suggestion.optimalCookingMethod}'
+          : suggestion.reason,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -406,22 +587,50 @@ class _SuggestionChip extends StatelessWidget {
                 width: 1.5,
               ),
             ),
-            child: Row(
+            child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.add_circle_outline,
-                  size: 16,
-                  color: AppColors.primary,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.add_circle_outline,
+                      size: 16,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      suggestion.ingredient.name,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  suggestion.ingredient.name,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
+                if (suggestion.optimalCookingMethod != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.restaurant_menu_rounded,
+                        size: 12,
+                        color: AppColors.primary.withOpacity(0.7),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        suggestion.optimalCookingMethod!,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppColors.primary.withOpacity(0.7),
+                          fontSize: 10,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                ],
               ],
             ),
           ),

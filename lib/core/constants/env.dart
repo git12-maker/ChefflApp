@@ -24,12 +24,18 @@ class Env {
   /// Example: 'sk-...'
   /// IMPORTANT: Never commit real API keys to version control!
   /// Use environment variables or a secrets file that is gitignored
-  static const String openAiApiKey = ''; // Set locally - never commit real keys
+  static const String openAiApiKey = ''; // Set via dart-define or replace locally - never commit real keys
 
   /// Replicate API Key
   /// Replace with your actual Replicate API key for image generation
   /// You can find this at: https://replicate.com/account/api-tokens
   /// Example: 'r8_...'
   /// IMPORTANT: Never commit real API keys to version control!
-  static const String replicateApiKey = ''; // Set locally - never commit real keys
+  /// Use environment variables or a secrets file that is gitignored
+  static const String replicateApiKey = ''; // Set via dart-define or replace locally - never commit real keys
+
+  /// Recraft AI API Key
+  /// For ingredient image generation
+  /// IMPORTANT: Never commit real API keys to version control!
+  static const String recraftApiKey = ''; // Set via dart-define or replace locally - never commit real keys
 }

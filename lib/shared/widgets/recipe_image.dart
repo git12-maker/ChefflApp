@@ -2,7 +2,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../core/constants/colors.dart';
-import 'cooking_loader.dart';
 import 'image_progress_loader.dart';
 
 class RecipeImage extends StatelessWidget {
@@ -101,8 +100,8 @@ class RecipeImage extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              AppColors.primary.withOpacity(0.9),
-              AppColors.accent.withOpacity(0.85),
+              AppColors.primary.withValues(alpha: 0.85),
+              AppColors.accent.withValues(alpha: 0.8),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -110,23 +109,30 @@ class RecipeImage extends StatelessWidget {
         ),
         child: Stack(
           children: [
+            Center(
+              child: Icon(
+                Icons.restaurant_menu_rounded,
+                size: height * 0.35,
+                color: Colors.white.withValues(alpha: 0.9),
+              ),
+            ),
             Positioned(
-              bottom: 16,
-              left: 16,
-              right: 16,
+              bottom: 12,
+              left: 12,
+              right: 12,
               child: Text(
                 title,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  color: AppColors.white,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: Colors.white,
                   fontWeight: FontWeight.w700,
                   shadows: const [
-                    Shadow(
-                      offset: Offset(0, 1),
-                      blurRadius: 6,
-                      color: Colors.black26,
-                    ),
+                    Shadow(offset: Offset(0, 1), blurRadius: 4, color: Colors.black26),
+                    Shadow(offset: Offset(0, 2), blurRadius: 8, color: Colors.black38),
                   ],
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
               ),
             ),
           ],

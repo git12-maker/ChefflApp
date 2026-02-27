@@ -215,9 +215,44 @@ class Ingredient {
       }
     }
 
-    // Parse textures
+    // Parse textures from structured texture_categories array (preferred) or fallback to text
     List<TextureCategory> textures = [];
-    if (json['texture'] != null && json['texture'].toString().isNotEmpty) {
+    
+    // First try structured texture_categories array
+    if (json['texture_categories'] != null && json['texture_categories'] is List) {
+      final textureCategories = (json['texture_categories'] as List).map((e) => e.toString().toLowerCase()).toList();
+      for (final category in textureCategories) {
+        switch (category) {
+          case 'crispy':
+            textures.add(TextureCategory.crispy);
+            break;
+          case 'creamy':
+            textures.add(TextureCategory.creamy);
+            break;
+          case 'tender':
+            textures.add(TextureCategory.tender);
+            break;
+          case 'chewy':
+            textures.add(TextureCategory.chewy);
+            break;
+          case 'silky':
+            textures.add(TextureCategory.silky);
+            break;
+          case 'crunchy':
+            textures.add(TextureCategory.crunchy);
+            break;
+          case 'soft':
+            textures.add(TextureCategory.soft);
+            break;
+          case 'firm':
+            textures.add(TextureCategory.firm);
+            break;
+        }
+      }
+    }
+    
+    // Fallback to parsing text field if texture_categories is empty
+    if (textures.isEmpty && json['texture'] != null && json['texture'].toString().isNotEmpty) {
       final textureStr = json['texture'].toString().toLowerCase();
       if (textureStr.contains('crispy') || textureStr.contains('knapperig')) {
         textures.add(TextureCategory.crispy);
@@ -310,6 +345,34 @@ class Ingredient {
             .toList();
       }
     }
+    
+    // Parse aroma_intensity (preferred) or fallback to intensity
+    double aromaIntensity = 0.5;
+    if (json['aroma_intensity'] != null) {
+      aromaIntensity = double.tryParse(json['aroma_intensity'].toString()) ?? 0.5;
+    } else if (json['intensity'] != null) {
+      aromaIntensity = double.tryParse(json['intensity'].toString()) ?? 0.5;
+    }
+    
+    // Parse pairing_affinities from database (JSONB array of ingredient IDs)
+    List<String> pairingAffinities = [];
+    if (json['pairing_affinities'] != null) {
+      if (json['pairing_affinities'] is List) {
+        pairingAffinities = (json['pairing_affinities'] as List)
+            .map((e) => e.toString())
+            .toList();
+      } else if (json['pairing_affinities'] is String) {
+        // Handle JSON string format
+        try {
+          final parsed = jsonDecode(json['pairing_affinities'] as String);
+          if (parsed is List) {
+            pairingAffinities = parsed.map((e) => e.toString()).toList();
+          }
+        } catch (_) {
+          // Ignore parse errors
+        }
+      }
+    }
 
     return Ingredient(
       id: json['id']?.toString() ?? '',
@@ -323,13 +386,34 @@ class Ingredient {
       moleculeType: moleculeType,
       textures: textures,
       mouthfeel: mouthfeel,
-      aromaIntensity: double.tryParse(json['intensity']?.toString() ?? '0.5') ?? 0.5,
+      aromaIntensity: aromaIntensity,
       aromaCategories: aromaCategories,
       season: json['season_en']?.toString() ?? json['season']?.toString(),
+      pairingAffinities: pairingAffinities,
       preparationMethods: _parseStringList(json['preparation_methods_en'] ?? json['preparation_methods']),
       culinaryUses: _parseStringList(json['culinary_uses_en'] ?? json['culinary_uses']),
-      imageUrl: json['hero_image_url']?.toString() ?? json['image_url']?.toString(),
+      imageUrl: _getImageUrl(json),
     );
+  }
+
+  /// Get image URL from JSON, preferring hero_image_url but falling back to image_url
+  /// Handles null, empty strings, and whitespace-only strings
+  static String? _getImageUrl(Map<String, dynamic> json) {
+    final heroUrlValue = json['hero_image_url'];
+    if (heroUrlValue != null) {
+      final heroUrl = heroUrlValue.toString().trim();
+      if (heroUrl.isNotEmpty) {
+        return heroUrl;
+      }
+    }
+    final imageUrlValue = json['image_url'];
+    if (imageUrlValue != null) {
+      final imageUrl = imageUrlValue.toString().trim();
+      if (imageUrl.isNotEmpty) {
+        return imageUrl;
+      }
+    }
+    return null;
   }
 
   static List<String> _parseStringList(dynamic value) {

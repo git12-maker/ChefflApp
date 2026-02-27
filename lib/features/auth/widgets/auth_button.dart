@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/colors.dart';
 
 /// Reusable styled button for authentication screens
 class AuthButton extends StatelessWidget {

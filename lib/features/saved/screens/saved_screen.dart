@@ -119,17 +119,8 @@ class _SavedScreenState extends ConsumerState<SavedScreen> {
     return SliverGrid(
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        // Optimized aspect ratio:
-        // Image: 160px fixed
-        // Padding: 12px top + 12px bottom = 24px  
-        // Title (2 lines max): ~36px
-        // Spacing: 8px
-        // Chips: ~20px
-        // Total: ~248px height
-        // Card width: (screen - 40 padding - 16 spacing) / 2
-        // For 375px screen: (375-40-16)/2 = 159px
-        // Aspect ratio: 159/248 ≈ 0.64, using 0.68 for safety margin
-        childAspectRatio: 0.68,
+        // Image: 150px + Flexible content. 0.65 gives adequate height to prevent overflow.
+        childAspectRatio: 0.65,
         mainAxisSpacing: 16,
         crossAxisSpacing: 16,
       ),

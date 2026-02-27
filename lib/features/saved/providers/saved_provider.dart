@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/models/recipe.dart';
 import '../../../shared/providers/recipe_provider.dart';
-import '../../../services/recipe_service.dart';
 
 class SavedState {
   const SavedState({
@@ -48,7 +47,7 @@ class SavedNotifier extends StateNotifier<SavedState> {
   SavedNotifier(this._repo) : super(const SavedState());
     // Don't load immediately - let screen decide when to load
 
-  final RecipeService _repo;
+  final RecipeServiceAdapter _repo;
   bool _hasLoaded = false;
 
   Future<void> load({bool force = false}) async {

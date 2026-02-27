@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import '../../../core/constants/colors.dart';
 
 class ImagePreview extends StatelessWidget {
   const ImagePreview({
@@ -14,8 +13,6 @@ class ImagePreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Stack(
       children: [
         ClipRRect(

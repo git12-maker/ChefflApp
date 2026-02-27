@@ -7,11 +7,13 @@ class StatsCard extends StatelessWidget {
     required this.totalRecipes,
     required this.favoritesCount,
     required this.recipesThisMonth,
+    required this.credits,
   });
 
   final int totalRecipes;
   final int favoritesCount;
   final int recipesThisMonth;
+  final int credits;
 
   @override
   Widget build(BuildContext context) {
@@ -57,9 +59,9 @@ class StatsCard extends StatelessWidget {
             color: theme.colorScheme.outlineVariant.withOpacity(0.3),
           ),
           _StatItem(
-            icon: Icons.auto_awesome_outlined,
-            label: 'This Month',
-            value: recipesThisMonth.toString(),
+            icon: Icons.stars_rounded,
+            label: 'Credits',
+            value: credits.toString(),
             color: AppColors.info,
           ),
         ],

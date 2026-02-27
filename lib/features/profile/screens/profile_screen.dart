@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../../core/constants/colors.dart';
 import '../../../services/supabase_service.dart';
-import '../../../shared/models/user_preferences.dart';
 import '../../../shared/providers/theme_provider.dart';
 import '../providers/profile_provider.dart';
 import '../widgets/profile_header.dart';
@@ -12,7 +11,6 @@ import '../widgets/stats_card.dart';
 import '../widgets/settings_section.dart';
 import '../widgets/settings_tile.dart';
 import '../widgets/theme_selector.dart';
-import '../widgets/dietary_preferences_sheet.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -109,102 +107,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 totalRecipes: state.totalRecipes,
                 favoritesCount: state.favoritesCount,
                 recipesThisMonth: state.recipesThisMonth,
+                credits: state.credits,
               ),
 
-              // Preferences Section
-              SettingsSection(
-                title: 'Preferences',
-                children: [
-                  SettingsTile(
-                    icon: Icons.restaurant_menu_outlined,
-                    title: 'Dietary Preferences',
-                    subtitle: state.preferences.dietaryPreferences.isEmpty
-                        ? 'None selected'
-                        : state.preferences.dietaryPreferences.join(', '),
-                    onTap: () => _showDietaryPreferencesSheet(
-                      context,
-                      state.preferences.dietaryPreferences,
-                      notifier.updateDietaryPreferences,
-                    ),
+              // Credits info
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  '3 free recipes for new users. Buy more credits when you run out.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
-                  SettingsTile(
-                    icon: Icons.people_outline,
-                    title: 'Default Servings',
-                    subtitle: '${state.preferences.defaultServings} servings',
-                    onTap: () => _showServingsPicker(
-                      context,
-                      state.preferences.defaultServings,
-                      notifier.updateDefaultServings,
-                    ),
-                  ),
-                  SettingsTile(
-                    icon: Icons.public_outlined,
-                    title: 'Preferred Cuisines',
-                    subtitle: state.preferences.preferredCuisines.isEmpty
-                        ? 'None selected'
-                        : state.preferences.preferredCuisines.join(', '),
-                    onTap: () => _showCuisinesPicker(
-                      context,
-                      state.preferences.preferredCuisines,
-                      notifier.updatePreferredCuisines,
-                    ),
-                  ),
-                  SettingsTile(
-                    icon: Icons.straighten_outlined,
-                    title: 'Measurement Units',
-                    subtitle: state.preferences.measurementUnit.displayName,
-                    trailing: SegmentedButton<MeasurementUnit>(
-                      segments: const [
-                        ButtonSegment<MeasurementUnit>(
-                          value: MeasurementUnit.metric,
-                          label: Text('Metric'),
-                        ),
-                        ButtonSegment<MeasurementUnit>(
-                          value: MeasurementUnit.imperial,
-                          label: Text('Imperial'),
-                        ),
-                      ],
-                      selected: {state.preferences.measurementUnit},
-                      onSelectionChanged: (Set<MeasurementUnit> newSelection) async {
-                        try {
-                          final newUnit = newSelection.first;
-                          await notifier.updateMeasurementUnit(newUnit);
-                          // Reload to ensure state is updated
-                          await notifier.load();
-                          // Show success feedback
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Row(
-                                  children: [
-                                    Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
-                                    SizedBox(width: 8),
-                                    Text('Measurement unit updated'),
-                                  ],
-                                ),
-                                backgroundColor: AppColors.primary,
-                                behavior: SnackBarBehavior.floating,
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Failed to update: $e'),
-                                backgroundColor: AppColors.error,
-                                behavior: SnackBarBehavior.floating,
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          }
-                        }
-                      },
-                    ),
-                  ),
-                ],
+                ),
               ),
+              const SizedBox(height: 24),
 
               // Appearance Section
               SettingsSection(
@@ -213,41 +129,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ThemeSelector(
                     currentTheme: themeMode,
                     onChanged: (mode) async {
-                      try {
-                        // Update theme provider (this updates the UI immediately)
-                        await themeNotifier.setThemeMode(mode);
-                        // Also update in profile provider for consistency
-                        await notifier.updateThemeMode(mode);
-                        // Reload to ensure state is updated
-                        await notifier.load();
-                        // Show success feedback
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Row(
-                                children: [
-                                  Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
-                                  SizedBox(width: 8),
-                                  Text('Theme updated'),
-                                ],
-                              ),
-                              backgroundColor: AppColors.primary,
-                              behavior: SnackBarBehavior.floating,
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Failed to update theme: $e'),
-                              backgroundColor: AppColors.error,
-                              behavior: SnackBarBehavior.floating,
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
-                        }
+                      await themeNotifier.setThemeMode(mode);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Theme updated'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
                       }
                     },
                   ),
@@ -395,170 +284,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  void _showDietaryPreferencesSheet(
-    BuildContext context,
-    List<String> current,
-    Future<void> Function(List<String>) onSave,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DietaryPreferencesSheet(
-        selectedPreferences: current,
-                    onSave: (preferences) async {
-          try {
-            // Save preferences
-            await onSave(preferences);
-            // Close sheet first
-            if (context.mounted) {
-              Navigator.of(context).pop();
-            }
-            // Show success feedback
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Row(
-                    children: [
-                      Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
-                      SizedBox(width: 8),
-                      Text('Dietary preferences saved'),
-                    ],
-                  ),
-                  backgroundColor: AppColors.primary,
-                  behavior: SnackBarBehavior.floating,
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            }
-          } catch (e) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Failed to save: $e'),
-                  backgroundColor: AppColors.error,
-                  behavior: SnackBarBehavior.floating,
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            }
-          }
-        },
-      ),
-    );
-  }
-
-  void _showServingsPicker(
-    BuildContext context,
-    int current,
-    Future<void> Function(int) onSave,
-  ) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        int selected = current;
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Default Servings'),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: List.generate(8, (index) {
-                    final servings = index + 1;
-                    return RadioListTile<int>(
-                      title: Text('$servings ${servings == 1 ? 'serving' : 'servings'}'),
-                      value: servings,
-                      groupValue: selected,
-                      onChanged: (value) {
-                        setState(() => selected = value!);
-                      },
-                    );
-                  }),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    try {
-                      await onSave(selected);
-                      if (dialogContext.mounted) {
-                        Navigator.of(dialogContext).pop();
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Row(
-                                children: [
-                                  Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
-                                  SizedBox(width: 8),
-                                  Text('Default servings saved'),
-                                ],
-                              ),
-                              backgroundColor: AppColors.primary,
-                              behavior: SnackBarBehavior.floating,
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      }
-                    } catch (e) {
-                      if (dialogContext.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Failed to save: $e'),
-                            backgroundColor: AppColors.error,
-                            behavior: SnackBarBehavior.floating,
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  child: const Text('Save'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showCuisinesPicker(
-    BuildContext context,
-    List<String> current,
-    Future<void> Function(List<String>) onSave,
-  ) {
-    const cuisines = [
-      'Italian',
-      'Asian',
-      'Mexican',
-      'French',
-      'Indian',
-      'Mediterranean',
-      'American',
-      'Japanese',
-      'Thai',
-      'Chinese',
-    ];
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _CuisinesPickerSheet(
-        cuisines: cuisines,
-        initialSelected: current,
-        onSave: onSave,
-      ),
-    );
-  }
-
   void _showLogoutDialog(BuildContext context, ProfileNotifier notifier) {
     showDialog(
       context: context,
@@ -618,146 +343,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
             child: const Text('Delete'),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CuisinesPickerSheet extends StatefulWidget {
-  const _CuisinesPickerSheet({
-    required this.cuisines,
-    required this.initialSelected,
-    required this.onSave,
-  });
-
-  final List<String> cuisines;
-  final List<String> initialSelected;
-  final Future<void> Function(List<String>) onSave;
-
-  @override
-  State<_CuisinesPickerSheet> createState() => _CuisinesPickerSheetState();
-}
-
-class _CuisinesPickerSheetState extends State<_CuisinesPickerSheet> {
-  late List<String> _selected;
-
-  @override
-  void initState() {
-    super.initState();
-    _selected = List<String>.from(widget.initialSelected);
-  }
-
-  void _toggleCuisine(String cuisine) {
-    setState(() {
-      if (_selected.contains(cuisine)) {
-        _selected.remove(cuisine);
-      } else {
-        _selected.add(cuisine);
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(20),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            margin: const EdgeInsets.only(top: 12, bottom: 8),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Theme.of(context)
-                  .colorScheme
-                  .outlineVariant
-                  .withOpacity(0.4),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 16,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Preferred Cuisines',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    try {
-                      await widget.onSave(_selected);
-                      if (context.mounted) {
-                        Navigator.of(context).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Row(
-                              children: [
-                                Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
-                                SizedBox(width: 8),
-                                Text('Preferred cuisines saved'),
-                              ],
-                            ),
-                            backgroundColor: AppColors.primary,
-                            behavior: SnackBarBehavior.floating,
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Failed to save: $e'),
-                            backgroundColor: AppColors.error,
-                            behavior: SnackBarBehavior.floating,
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  child: const Text('Done'),
-                ),
-              ],
-            ),
-          ),
-          Flexible(
-            child: ListView.builder(
-              shrinkWrap: true,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: widget.cuisines.length,
-              itemBuilder: (context, index) {
-                final cuisine = widget.cuisines[index];
-                final isSelected = _selected.contains(cuisine);
-                
-                return CheckboxListTile(
-                  value: isSelected,
-                  onChanged: (_) => _toggleCuisine(cuisine),
-                  title: Text(cuisine),
-                  activeColor: AppColors.primary,
-                  contentPadding: EdgeInsets.zero,
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 20),
         ],
       ),
     );

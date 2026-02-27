@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
-import '../../../core/constants/app_config.dart';
 import '../../../core/constants/colors.dart';
 import '../../../shared/models/recipe.dart';
 import '../../../shared/models/user_preferences.dart';
@@ -16,6 +15,7 @@ import '../providers/generate_provider.dart';
 import '../widgets/ingredient_checklist.dart';
 import '../widgets/instruction_steps.dart';
 import '../widgets/recipe_stats_row.dart';
+import '../widgets/recipe_why_it_works.dart';
 
 class RecipeResultScreen extends ConsumerStatefulWidget {
   const RecipeResultScreen({super.key, required this.recipe});
@@ -42,23 +42,10 @@ class _RecipeResultScreenState extends ConsumerState<RecipeResultScreen> {
     final profileNotifier = ref.read(profileProvider.notifier);
     final recipeService = RecipeService.instance;
     
-    // Safety check: if no recipe is available, navigate back
-    if (currentRecipe == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          context.go('/generate');
-        }
-      });
-      return Scaffold(
-        appBar: AppBar(title: const Text('Recipe')),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
-    
     // Ensure image generation continues if recipe exists but image is missing
     // This handles navigation from loading screen before image is ready
     if (state.generatedRecipe != null && 
-        state.generatedRecipe?.imageUrl == null && 
+        state.generatedRecipe!.imageUrl == null && 
         !state.imageLoading) {
       // Start image generation in background
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -69,12 +56,14 @@ class _RecipeResultScreenState extends ConsumerState<RecipeResultScreen> {
     }
 
     // Sync providers when recipe is saved (has ID)
-    if (currentRecipe.id != null) {
+    if (currentRecipe.id != null && !_hasSyncedProviders) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         // Refresh providers to sync data (silent refresh)
         savedNotifier.refresh();
         homeNotifier.refresh();
         profileNotifier.load();
+        setState(() => _hasSyncedProviders = true);
       });
     }
 
@@ -130,10 +119,7 @@ class _RecipeResultScreenState extends ConsumerState<RecipeResultScreen> {
                           final updatedRecipe = currentState.generatedRecipe!.copyWith(
                             isFavorite: newFavoriteStatus,
                           );
-                          ref.read(generateProvider.notifier).state = 
-                              currentState.copyWith(
-                                generatedRecipe: updatedRecipe,
-                              );
+                          ref.read(generateProvider.notifier).setGeneratedRecipe(updatedRecipe);
                         }
                         
                         // Refresh all providers to sync
@@ -302,6 +288,12 @@ class _RecipeResultScreenState extends ConsumerState<RecipeResultScreen> {
                     Text('Ingredients', style: theme.textTheme.titleLarge),
                     const SizedBox(height: 8),
                     _RecipeIngredients(recipe: currentRecipe),
+                    const SizedBox(height: 24),
+                    // Why it works section
+                    RecipeWhyItWorks(
+                      recipe: currentRecipe,
+                      ingredients: state.ingredients,
+                    ),
                     const SizedBox(height: 24),
                     Text('Instructions', style: theme.textTheme.titleLarge),
                     const SizedBox(height: 8),

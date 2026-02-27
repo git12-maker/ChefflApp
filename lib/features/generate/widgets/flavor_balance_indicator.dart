@@ -71,8 +71,6 @@ class FlavorBalanceIndicator extends StatelessWidget {
   }
 
   Widget _buildCompactIndicator(BuildContext context) {
-    final theme = Theme.of(context);
-    
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
